@@ -236,3 +236,51 @@ html,body{background:#eef1f4}.air-app.light-theme{color:#1c232b;background:linea
 .unified-stage>.movable-visual>.object-dock-action{left:124px;right:auto}
 @media(max-width:1100px){.visualization-bottom-bar{flex-wrap:wrap;gap:8px}.bottom-visual-title{flex-basis:100%;display:flex;align-items:baseline;gap:10px}.bottom-visual-title span{font-size:9px}.bottom-visual-title strong{font-size:17px;margin:0}.bottom-visual-title small{margin:0;flex:1}.bottom-visual-actions{flex-wrap:wrap;width:100%}.spatial-sidebar.object-dock{bottom:130px}}
 @media(max-width:760px){.visualization-bottom-bar{position:fixed;left:16px;right:16px;bottom:12px;padding:10px;gap:8px}.bottom-visual-title small{display:none}.bottom-visual-actions{gap:6px}.visualization-bottom-bar button{padding:7px 8px;font-size:11px}.visual-zoom-controls button{font-size:16px}.bottom-visual-details{margin-left:auto}.spatial-sidebar.object-dock{bottom:146px}}
+
+/* Local classroom trial: less chrome, more presenter, deliberate coding controls. */
+.air-app.light-theme{grid-template-rows:48px minmax(0,1fr)}
+.light-theme .air-topbar{padding:0 10px;gap:8px}
+.air-topbar .air-brand{gap:7px}.air-topbar .air-brand-mark{width:27px;height:27px;border-radius:8px}.air-topbar .air-brand strong{font-size:12px}.air-topbar .air-brand small{font-size:6px}.air-topbar .document-identity small{display:none}
+.air-topbar .ghost-button,.air-topbar .primary-button{height:30px;padding:0 9px;font-size:11px}
+.air-topbar .learn-gestures-button{width:auto;white-space:nowrap;color:#215b85}
+.classroom-immersive .air-workspace.lab-focus{grid-template-columns:44px minmax(0,1fr)}
+.classroom-immersive .tool-dock{padding:6px 4px;gap:4px}.classroom-immersive .dock-button,.classroom-immersive .dock-logo{width:34px;height:34px;border-radius:8px}
+.classroom-immersive .stage-shell{padding:4px}.classroom-immersive .spatial-stage{border-radius:12px;min-height:0}
+.classroom-immersive .lab-focus .document-space{padding:42px 4px 4px!important;overflow:hidden}
+.classroom-immersive .document-surface.lab-surface{max-width:none;border-radius:10px!important}
+.classroom-immersive .livelab-chrome{top:4px;left:4px;right:4px;gap:6px}
+.classroom-immersive .single-stage-badge{height:32px;padding:0 10px;font-size:9px;border-radius:8px}
+.classroom-immersive .classroom-controls{height:32px;border-radius:8px;padding:3px;gap:3px}
+.classroom-immersive .classroom-controls button,.classroom-immersive .classroom-controls input{height:25px;font-size:10px;padding:0 7px}
+.classroom-immersive .presenter-live .stage-camera,.classroom-immersive .presenter-live .spatial-hand-overlay{top:42px;left:4px;width:calc(100% - 8px);height:calc(100% - 46px)}
+.gesture-language-picker{display:flex;align-items:center;gap:5px;padding:7px 10px;border-bottom:1px solid #80eaff22;background:#081e2b}
+.coding-gesture-status{position:absolute;z-index:32;left:12px;bottom:118px;max-width:calc(100% - 24px);padding:7px 11px;border:1px solid #90efff44;border-radius:8px;background:#071d29e6;color:#d5f8ff;font-size:12px;pointer-events:none}
+.gesture-language-picker button{min-width:36px;min-height:28px;border:1px solid #82eaff44;border-radius:6px;background:#123847;color:#d9faff;font-size:12px;cursor:pointer}
+.gesture-language-picker button[aria-pressed=true]{border-color:#a3f5ff;background:#1b5868}.gesture-language-picker button:disabled{opacity:.5}
+.gesture-language-picker span{margin-left:auto;font-size:10px;color:#abd2de}
+.code-stdin,.compiler-setup{padding:8px 12px;background:#071d29;color:#d4f4fb;border-top:1px solid #7ceaff22;font-size:12px;line-height:1.6}
+.code-stdin summary,.compiler-setup summary{cursor:pointer;font-weight:600;color:#9aefff}
+.floating-code .code-stdin textarea{height:66px;min-height:66px;margin-top:8px;padding:8px;border:1px solid #7ceaff44;border-radius:6px;font-size:12px}
+.compiler-setup pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#102e3c;padding:9px;border-radius:6px;font:11px/1.7 ui-monospace,monospace}
+.compiler-setup p{margin:8px 0}.compiler-setup ol{padding-left:18px}.compiler-setup a{color:#93edff;text-decoration:underline}
+.floating-code{max-height:calc(100% - var(--card-top,10%) - 112px);overflow:auto;scrollbar-width:thin;scrollbar-color:#43899a #081e2b}
+.unified-stage>.unified-ink{bottom:112px}
+.unified-stage>.floating-code textarea[aria-label="Floating code editor"]{height:112px;min-height:90px}
+.unified-stage>.glass-object:focus-within,.unified-stage>.glass-object.air-grabbed{z-index:26}
+.object-dock .floating-code{max-height:none}
+[data-air-confirm]{position:relative;isolation:isolate;overflow:hidden}
+[data-air-confirm][data-air-holding]{outline:2px solid #b3f7ff;outline-offset:2px}
+[data-air-confirm][data-air-holding]:after{content:"";position:absolute;bottom:0;left:0;height:4px;width:var(--air-hold-progress,0%);background:#d8ffff;box-shadow:0 0 8px #7cf6ff;pointer-events:none}
+.learn-gestures-dialog{width:min(880px,calc(100vw - 28px));max-height:calc(100dvh - 32px);margin:auto;padding:24px;border:1px solid #cedce7;border-radius:18px;background:#f8fbfd;color:#243747;box-shadow:0 24px 90px #0006;overflow:auto}
+.learn-gestures-dialog::backdrop{background:#041a28a8;backdrop-filter:blur(5px)}
+.learn-gestures-dialog header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.learn-gestures-dialog header span{font:10px ui-monospace,monospace;letter-spacing:.12em;color:#257ba1}.learn-gestures-dialog h2{margin:6px 0 0;font-size:28px;letter-spacing:-.03em}
+.learn-gestures-dialog button{border:1px solid #b6cddd;border-radius:8px;background:#fff;color:#225b7c;padding:8px 12px;cursor:pointer;font-size:13px;min-height:34px}
+.learn-gestures-dialog header button{font-size:22px;padding:2px 11px}.gesture-guide-intro{font-size:14px;line-height:1.6;color:#536879;max-width:700px}
+.guide-camera-state{padding:10px 12px;border:1px solid #c9dfeb;border-radius:9px;background:#eaf5fb;color:#306a8d;font-size:12px}
+.gesture-lesson-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;list-style:none;padding:0;margin:18px 0}
+.gesture-lesson-grid li{padding:15px;border:1px solid #d5e1e9;border-radius:11px;background:#fff}.gesture-lesson-grid b{display:block;margin-bottom:8px;font:11px ui-monospace,monospace;color:#2480aa}.gesture-lesson-grid strong{display:block;font-size:14px;line-height:1.5}.gesture-lesson-grid p{margin:7px 0 0;color:#5b6d7b;font-size:13px;line-height:1.6}
+.gesture-do-avoid{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:14px;border-radius:11px;background:#eaf0f5}.gesture-do-avoid h3{font-size:14px;margin:0 0 6px}.gesture-do-avoid p{font-size:13px;line-height:1.6;margin:0;color:#566c7c}
+.gesture-practice{margin-top:16px;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px;border:1px solid #bce1ec;border-radius:11px;background:#eaf9fc}.gesture-practice strong{font-size:14px}.gesture-practice p{font-size:12px;color:#506d7d;margin:5px 0}.gesture-practice button{background:#155971;color:#e7fcff;flex-shrink:0}
+.learn-gestures-dialog footer{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-top:18px}.learn-gestures-dialog footer span{font-size:11px;color:#667c8b;max-width:550px}
+@media(max-width:900px){.air-topbar .document-identity{display:none}.air-topbar{grid-template-columns:1fr auto}.air-topbar .clean-toggle{display:none}.gesture-language-picker{flex-wrap:wrap}.gesture-language-picker span{font-size:9px}}
+@media(max-width:760px){.air-app.classroom-immersive{height:100dvh;min-height:0}.classroom-immersive .air-workspace.lab-focus{grid-template-columns:1fr}.classroom-immersive .document-surface.lab-surface{height:100%;margin:0}.classroom-immersive .livelab-chrome{display:flex}.classroom-immersive .classroom-controls{overflow-x:auto;max-width:100%}.classroom-immersive .visualization-bottom-bar{position:absolute;left:8px;right:8px;bottom:8px}.gesture-lesson-grid,.gesture-do-avoid{grid-template-columns:1fr}.learn-gestures-dialog{padding:16px}.gesture-practice,.learn-gestures-dialog footer{flex-wrap:wrap}}

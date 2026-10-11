@@ -1,8 +1,45 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DockHold, smoothZoom, translatePose } from "../app/livelab/spatialControls.ts";
+import { DockHold, SpatialPinch, ConfirmHold, isDeliberateTap, smoothZoom, translatePose } from "../app/livelab/spatialControls.ts";
 import { compilerFor, validRuntimes } from "../app/livelab/codeRuntimes.ts";
 import { createCompilerClient } from "../app/livelab/judge0Provider.ts";
+
+test("pinch hysteresis rejects isolated close/release frames",()=>{
+  const pinch=new SpatialPinch();
+  assert.equal(pinch.update(.1,0).started,false);
+  pinch.update(.3,30);assert.equal(pinch.update(.1,40).started,false);
+  assert.equal(pinch.update(.1,85).started,true);
+  assert.equal(pinch.update(.5,100).ended,false);
+  assert.equal(pinch.update(.3,140).active,true);
+  pinch.update(.5,200);assert.equal(pinch.update(.5,270).ended,true);
+  assert.equal(pinch.update(.5,400).ended,false);
+  pinch.reset();assert.equal(pinch.update(NaN,450).active,false);
+});
+test("control taps require short duration, little travel and release inside",()=>{
+  assert.equal(isDeliberateTap(200,8,true),true);
+  for(const args of [[50,0,true],[900,0,true],[200,19,true],[200,0,false]]) assert.equal(isDeliberateTap(...args),false);
+});
+test("execution hold cancels off target and fires only once before release",()=>{
+  const hold=new ConfirmHold();
+  hold.update(true,100);assert.equal(hold.update(true,800).fire,false);
+  hold.update(false,850);hold.update(true,900);
+  assert.equal(hold.update(true,1799).fire,false);
+  assert.equal(hold.update(true,1800).fire,true);
+  assert.equal(hold.update(true,3000).fire,false);
+  hold.update(false,3100);assert.equal(hold.update(true,5000).fire,false);
+  hold.reset();hold.update(true,6000);assert.equal(hold.update(true,6900).fire,true);
+});
+
+test("C++ compiler forwards stdin and supports server-only RapidAPI authentication",async()=>{
+  const calls=[],responses=[[{id:88,name:"C++ (GCC 14)"}],{token:"cpp-job"},{status:{id:3,description:"Accepted"},stdout:"12"}];
+  const fetcher=async(url,init)=>{calls.push({url,init});return new Response(JSON.stringify(responses.shift()));};
+  const client=createCompilerClient("https://compiler.test","test-token",fetcher,async()=>{},"compiler.test");
+  assert.equal((await client.execute("#include <iostream>\nint main(){}",88,"5 7")).output,"12");
+  assert.equal(JSON.parse(calls[1].init.body).stdin,"5 7");
+  assert.equal(calls[0].init.headers["X-RapidAPI-Key"],"test-token");
+  assert.equal(calls[0].init.headers["X-Auth-Token"],undefined);
+  assert.throws(()=>createCompilerClient("https://compiler.test",undefined,fetcher,async()=>{},"compiler.test"),/API_KEY/);
+});
 
 test("V hold requires stable focus and release before a second activation",()=>{
   const hold=new DockHold();

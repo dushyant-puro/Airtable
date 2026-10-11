@@ -46,14 +46,18 @@ Import this repository into Vercel and keep the detected defaults:
 
 No environment variables are required. HTTPS is required for camera access outside localhost.
 
-Optional Judge0 integration:
+Judge0 is required for C/C++/Java execution in the floating editor. Add these server-only settings to `.env.local`, then restart the application:
 
 ```bash
 JUDGE0_BASE_URL=https://your-judge0-host
 JUDGE0_API_KEY=optional-token
 ```
 
-When configured, LiveLab loads the server's runtime catalogue and executes those languages through the sandboxed `/api/execute` adapter. Without it, the six browser runtimes remain available.
+When configured, LiveLab loads the server's runtime catalogue and executes those languages through the sandboxed `/api/execute` adapter. The unified floating editor guarantees JavaScript execution only without a compiler; C/C++/Java editing and source projection still work. No shared public compiler is chosen automatically. A hosted or self-hosted service must be configured before native execution can be tested. For a RapidAPI-backed Judge0 service, also set `JUDGE0_RAPIDAPI_HOST` to the host provided in its dashboard; `JUDGE0_API_KEY` is then sent through RapidAPI headers instead of `X-Auth-Token`. Keys are never exposed to the browser. Check the connection in the editor after restarting. Program input is available under **Program input (stdin)**.
+
+## Local gesture trial
+
+**Learn gestures** in the top bar opens a field guide with supported actions, what to avoid, and a safe confirmation-practice button that never runs code. Pinch the floating editor's header to move it; pinch its text area briefly to focus it, then type with the keyboard. Use the visible JS/C/C++/Java buttons for gesture language selection. A short, low-motion pinch released inside an ordinary button activates it. Code execution requires a steady pinch held over Run for 900 ms, with progress feedback; moving off the target cancels it. Release before a second execution. Mouse click or Ctrl/Command + Enter in the editor remains available. Pinch close/release hysteresis filters isolated noisy frames. The classroom header and side margins are smaller to keep the presenter stage large. These changes still require physical-camera rehearsal on the teaching laptop.
 
 ## Production build
 

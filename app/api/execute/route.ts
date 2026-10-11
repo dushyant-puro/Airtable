@@ -6,9 +6,9 @@ const recentJobs = new Map<string,{since:number;count:number}>();
 
 export async function GET() {
   const base = process.env.JUDGE0_BASE_URL;
-  if (!base) return NextResponse.json({configured:false,runtimes:[]});
-  try { return NextResponse.json({configured:true,runtimes:await createCompilerClient(base,process.env.JUDGE0_API_KEY).listRuntimes()}); }
-  catch { return NextResponse.json({configured:false,runtimes:[],error:"Compiler unavailable. Check JUDGE0_BASE_URL and retry."},{status:502}); }
+  if (!base) return NextResponse.json({configured:false,healthy:false,runtimes:[],error:"No compiler connected. Configure JUDGE0_BASE_URL on the server to run C, C++ or Java."});
+  try { const runtimes=await createCompilerClient(base,process.env.JUDGE0_API_KEY,fetch,undefined,process.env.JUDGE0_RAPIDAPI_HOST).listRuntimes();return NextResponse.json({configured:true,healthy:runtimes.length>0,runtimes,error:runtimes.length?undefined:"Compiler returned no available runtimes."}); }
+  catch(error) { return NextResponse.json({configured:true,healthy:false,runtimes:[],error:error instanceof CompilerFailure?error.message:"Compiler unavailable. Check JUDGE0_BASE_URL and retry."},{status:502}); }
 }
 
 export async function POST(request: NextRequest) {
@@ -25,6 +25,6 @@ export async function POST(request: NextRequest) {
   const window=recentJobs.get(client)??{since:now,count:0};
   if(window.count>=10)return NextResponse.json({error:"Execution limit reached. Wait one minute and retry."},{status:429});
   window.count++;recentJobs.set(client,window);
-  try { return NextResponse.json(await createCompilerClient(base,process.env.JUDGE0_API_KEY).execute(sourceCode,languageId,stdin)); }
+  try { return NextResponse.json(await createCompilerClient(base,process.env.JUDGE0_API_KEY,fetch,undefined,process.env.JUDGE0_RAPIDAPI_HOST).execute(sourceCode,languageId,stdin)); }
   catch(error){ return NextResponse.json({error:error instanceof CompilerFailure?error.message:"Compiler failed. Your source was not changed."},{status:error instanceof CompilerFailure?error.status:502}); }
 }

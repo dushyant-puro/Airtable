@@ -8,7 +8,8 @@ import { FilesetResolver, GestureRecognizer } from "@mediapipe/tasks-vision";
 import { createWorker } from "tesseract.js";
 import { ClassroomControls, LiveLabWorkspace } from "./livelab/LiveLabWorkspace";
 import { usePrototypeRoom } from "./livelab/usePrototypeRoom";
-import { DockHold } from "./livelab/spatialControls";
+import { DockHold, SpatialPinch, ConfirmHold, isDeliberateTap } from "./livelab/spatialControls";
+import { GestureGuide } from "./livelab/GestureGuide";
 
 if (typeof window !== "undefined") pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
@@ -56,6 +57,7 @@ export default function AirBoard() {
   const modeRef = useRef(mode), lessonModeRef = useRef(lessonMode), toolRef = useRef(tool), colorRef = useRef(color), pageRef = useRef(page), pageCountRef = useRef(pageCount), scaleRef = useRef(scale), linesRef = useRef(lineRects), hoverLineStateRef = useRef<LineRect | null>(null), highlightsRef = useRef(highlights);
   const airInkLast = useRef<Point | null>(null), airInkCanvas = useRef<HTMLCanvasElement | null>(null), spatialHandsRef=useRef<HTMLCanvasElement>(null);
   const dockHold=useRef(new DockHold()),spatialZoomArm=useRef<{since:number;target:string}|null>(null);
+  const spatialPinch=useRef(new SpatialPinch()),confirmHold=useRef(new ConfirmHold()),pinchTiming=useRef({since:0,maxTravel:0});
   const spatialSession=useRef<{pinch:boolean;target:string;start:Point|null;control:HTMLElement|null;fist:number;fistFired:boolean;zoom:boolean;angle:number|null}>({pinch:false,target:"model",start:null,control:null,fist:0,fistFired:false,zoom:false,angle:null});
   const visionStarting=useRef(false),visionCleanup=useRef<(()=>void)|null>(null);
   useEffect(()=>()=>{visionCleanup.current?.();},[]);
@@ -115,8 +117,9 @@ export default function AirBoard() {
     const rect=canvas.getBoundingClientRect(),point={x:rect.left+x/canvas.width*rect.width,y:rect.top+y/canvas.height*rect.height},session=spatialSession.current;
     const emit=(detail:Record<string,unknown>)=>window.dispatchEvent(new CustomEvent("air-spatial",{detail}));
     const palm=(h:any)=>[8,12,16,20].every(i=>h[i].y<h[i-2].y);
-    const end=()=>{if(session.pinch||session.zoom){emit({phase:"end"});airInkCanvas.current?.dispatchEvent(new CustomEvent("air-ink-complete"));}session.pinch=false;session.zoom=false;session.control=null;airInkLast.current=null;airInkCanvas.current=null;};
+    const end=()=>{if(session.pinch||session.zoom){emit({phase:"end"});airInkCanvas.current?.dispatchEvent(new CustomEvent("air-ink-complete"));}session.control?.removeAttribute("data-air-holding");session.control?.style.removeProperty("--air-hold-progress");confirmHold.current.reset();spatialPinch.current.reset();session.pinch=false;session.zoom=false;session.control=null;airInkLast.current=null;airInkCanvas.current=null;};
     if(hands.length===2&&hands.every(palm)){
+      spatialPinch.current.reset();
       if(session.pinch)end();session.fist=0;
       dockHold.current.reset();
       const a=hands[0][9],b=hands[1][9],distance=Math.hypot((a.x-b.x)*rect.width/rect.height,a.y-b.y);
@@ -127,6 +130,7 @@ export default function AirBoard() {
     spatialZoomArm.current=null;
     if(session.zoom)end();
     if(hands.length===1&&name==="Victory"){
+      spatialPinch.current.reset();
       if(session.pinch)end();session.fist=0;
       const target=document.elementFromPoint(point.x,point.y)?.closest<HTMLElement>("[data-spatial-id]");
       const id=target&&!target.classList.contains("docked-object")?target.dataset.spatialId??null:null;
@@ -136,30 +140,49 @@ export default function AirBoard() {
     }
     dockHold.current.reset();
     if(name==="Closed_Fist"){
+      spatialPinch.current.reset();
       if(session.pinch)end();if(!session.fist)session.fist=timestamp;
       if(timestamp-session.fist>850&&!session.fistFired){emit({phase:"sidebar"});session.fistFired=true;}
       setGestureLabel(session.fistFired?"Tools toggled · release fist":"Hold fist to reveal tools");return true;
     }
     session.fist=0;session.fistFired=false;
-    if(!session.pinch&&pinchDistance<.22){
+    const pinch=spatialPinch.current.update(pinchDistance,timestamp);
+    if(!session.pinch&&pinch.started){
       if(session.angle!==null){emit({phase:"orbit-end"});session.angle=null;}
       session.pinch=true;session.start=point;
+      pinchTiming.current={since:timestamp,maxTravel:0};confirmHold.current.reset();
       const element=document.elementFromPoint(point.x,point.y),header=element?.closest<HTMLElement>("[data-air-grab]");
-      session.control=element?.closest<HTMLElement>('button,input[type="range"]')||null;
-      session.target=session.control?.matches('input[type="range"]')?"slider":header&&!session.control?header.dataset.airGrab!:element?.closest("canvas[data-air-ink]")?"ink":element?.closest('[data-spatial-id="model"]')&&!session.control?"model":"control";
+      session.control=element?.closest<HTMLElement>('button,input[type="range"],textarea,select,summary')||null;
+      session.target=session.control?.matches('input[type="range"]')?"slider":session.control?.matches("textarea,select")?"editor":header&&!session.control?header.dataset.airGrab!:element?.closest("canvas[data-air-ink]")?"ink":element?.closest('[data-spatial-id="model"]')&&!session.control?"model":"control";
       airInkLast.current=null;emit({phase:"start",target:session.target,...point});
     }
-    if(session.pinch&&pinchDistance>.38){
-      if(session.target==="control"&&session.control&&session.start&&Math.hypot(point.x-session.start.x,point.y-session.start.y)<35&&!session.control.hasAttribute("disabled"))session.control.click();
+    if(session.pinch&&session.start)pinchTiming.current.maxTravel=Math.max(pinchTiming.current.maxTravel,Math.hypot(point.x-session.start.x,point.y-session.start.y));
+    if(session.pinch&&pinch.ended){
+      const control=session.control,bounds=control?.getBoundingClientRect(),inside=!!bounds&&point.x>=bounds.left&&point.x<=bounds.right&&point.y>=bounds.top&&point.y<=bounds.bottom;
+      if(control&&!control.hasAttribute("disabled")&&isDeliberateTap(timestamp-pinchTiming.current.since,pinchTiming.current.maxTravel,inside)){
+        if(session.target==="control"&&!control.hasAttribute("data-air-confirm")){control.focus();control.click();}
+        if(session.target==="editor")control.focus();
+      }
       end();setGestureLabel("Released · point to focus");return true;
     }
     if(session.pinch){
       if(session.target==="ink")drawAirInkAt(x,y);
+      else if(session.target==="control"&&session.control){
+        const control=session.control,bounds=control.getBoundingClientRect(),inside=point.x>=bounds.left&&point.x<=bounds.right&&point.y>=bounds.top&&point.y<=bounds.bottom;
+        if(control.hasAttribute("data-air-confirm")&&!control.hasAttribute("disabled")){
+          const hold=confirmHold.current.update(inside&&pinchTiming.current.maxTravel<=18&&pinch.active&&pinchDistance<.38,timestamp);
+          control.setAttribute("data-air-holding","");control.style.setProperty("--air-hold-progress",`${hold.progress*100}%`);
+          if(hold.fire){control.focus();control.click();setGestureLabel("Run confirmed · release pinch before another action");}
+          else setGestureLabel(hold.progress===1?"Run confirmed · release pinch":`Hold pinch to run · ${Math.round(hold.progress*100)}%`);
+        }else setGestureLabel("Button focused · release a short pinch to activate");
+        return true;
+      }
+      else if(session.target==="editor"){setGestureLabel("Short pinch to focus editor · type using your keyboard");return true;}
       else if(session.target==="slider"&&session.control instanceof HTMLInputElement){
         const input=session.control,bounds=input.getBoundingClientRect(),min=Number(input.min)||0,max=Number(input.max)||100,step=Number(input.step)||1;
         const value=Math.max(min,Math.min(max,min+Math.round(((point.x-bounds.left)/bounds.width)*(max-min)/step)*step));
         if(Math.abs(Number(input.value)-value)>=step*.5){Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")?.set?.call(input,String(value));input.dispatchEvent(new Event("input",{bubbles:true}));}
-      }else emit({phase:"move",target:session.target,...point});
+      }else if(pinchTiming.current.maxTravel>5)emit({phase:"move",target:session.target,...point});
       setGestureLabel(session.target==="ink"?"Luminous ink · pinch and write":`Holding ${session.target} · move your hand`);return true;
     }
     const focus=document.elementFromPoint(point.x,point.y)?.closest<HTMLElement>("[data-spatial-id]")?.dataset.spatialId;if(focus)session.target=focus;
@@ -182,7 +205,7 @@ export default function AirBoard() {
         if (!running || !videoRef.current) return; const currentVideo = videoRef.current;
         if (currentVideo.readyState >= 2 && currentVideo.currentTime !== lastVideoTime) {
           lastVideoTime = currentVideo.currentTime; const result = landmarker.recognizeForVideo(currentVideo, timestamp), hands = result.landmarks ?? []; drawHandHud(hands); setConfidence(hands.length ? Math.round((result.gestures?.[0]?.[0]?.score ?? result.handedness?.[0]?.[0]?.score ?? .9) * 100) : 0);
-          if (!hands.length) { dockHold.current.reset();spatialZoomArm.current=null; if(spatialSession.current.pinch||spatialSession.current.zoom){window.dispatchEvent(new CustomEvent("air-spatial",{detail:{phase:"end"}}));airInkCanvas.current?.dispatchEvent(new CustomEvent("air-ink-complete"));}spatialSession.current.pinch=false;spatialSession.current.zoom=false;spatialSession.current.fist=0;spatialSession.current.fistFired=false;airInkLast.current=null;airInkCanvas.current=null;setGestureLabel("Waiting for hand"); filterX.current.reset(); filterY.current.reset(); stablePoint.current=null;lastPoint.current = null; swipeTrack.current = null;openPalmSince.current=null; zoomStart.current = null;zoomArmedSince.current=null; if (cursorRef.current) cursorRef.current.style.opacity = "0"; }
+          if (!hands.length) { dockHold.current.reset();spatialPinch.current.reset();confirmHold.current.reset();spatialSession.current.control?.removeAttribute("data-air-holding");spatialSession.current.control?.style.removeProperty("--air-hold-progress");spatialSession.current.control=null;spatialZoomArm.current=null; if(spatialSession.current.pinch||spatialSession.current.zoom){window.dispatchEvent(new CustomEvent("air-spatial",{detail:{phase:"end"}}));airInkCanvas.current?.dispatchEvent(new CustomEvent("air-ink-complete"));}spatialSession.current.pinch=false;spatialSession.current.zoom=false;spatialSession.current.fist=0;spatialSession.current.fistFired=false;airInkLast.current=null;airInkCanvas.current=null;setGestureLabel("Waiting for hand"); filterX.current.reset(); filterY.current.reset(); stablePoint.current=null;lastPoint.current = null; swipeTrack.current = null;openPalmSince.current=null; zoomStart.current = null;zoomArmedSince.current=null; if (cursorRef.current) cursorRef.current.style.opacity = "0"; }
           else {
             const hand=hands[0],thumb=hand[4],index=hand[8],middle=hand[12],ring=hand[16],pinky=hand[20],wrist=hand[0],canvas=inkCanvasRef.current;if(!canvas)return;
             const palm=Math.hypot(wrist.x-hand[9].x,wrist.y-hand[9].y)||.15,pinchDistance=Math.hypot(index.x-thumb.x,index.y-thumb.y)/palm,open=[index.y<hand[6].y,middle.y<hand[10].y,ring.y<hand[14].y,pinky.y<hand[18].y],extendedCount=open.filter(Boolean).length,thumbOpen=Math.hypot(thumb.x-hand[2].x,thumb.y-hand[2].y)/palm>.5,recognizedGesture=result.gestures?.[0]?.[0],recognizedName=recognizedGesture?.categoryName??"None",recognizedScore=recognizedGesture?.score??0;
@@ -237,8 +260,8 @@ export default function AirBoard() {
   useEffect(()=>{if(room.state.highlights.length){const next=room.state.highlights as Highlight[];window.setTimeout(()=>setHighlights(next),0);}},[room.state.highlights]);
   useEffect(()=>{inkSnapshots.current={...inkSnapshots.current,...room.state.inkSnapshots};if(mode!=="welcome")restoreInk(snapshotKey());},[room.state.inkSnapshots]);
 
-  return <main className="air-app light-theme">
-    <header className="air-topbar"><div className="air-brand"><div className="air-brand-mark"><span/><i/></div><div><strong>AirBoard</strong><small>GESTURE WORKSPACE</small></div></div><div className="document-identity"><span className={`mode-dot ${cameraActive?"online":""}`}/><div><strong>{mode==="pdf"?pdfName:mode==="board"?"Untitled canvas":"No document open"}</strong><small>{mode==="pdf"?`${pageCount} pages · local session`:"Private · processed on device"}</small></div></div><div className="top-actions"><div className="clean-toggle"><div><strong>Clean handwriting</strong><small>{cleanStatus}</small></div><button role="switch" aria-checked={autoClean} className={autoClean?"on":""} onClick={()=>{setAutoClean(!autoClean);setCleanStatus(!autoClean?"Ready":"Off");}}><span/></button></div><button className={`ghost-button ${showSearch?"active":""}`} onClick={()=>setShowSearch(!showSearch)}><Icon name="search"/><span>Quick Look</span></button><button className="primary-button" onClick={()=>fileInputRef.current?.click()}><Icon name="upload"/><span>Open PDF</span></button><input ref={fileInputRef} type="file" accept="application/pdf" hidden onChange={handlePdfUpload}/></div></header>
+  return <main className={`air-app light-theme ${lessonMode!=="document"&&mode!=="welcome"?"classroom-immersive":""}`}>
+    <header className="air-topbar"><div className="air-brand"><div className="air-brand-mark"><span/><i/></div><div><strong>AirBoard</strong><small>GESTURE WORKSPACE</small></div></div><div className="document-identity"><span className={`mode-dot ${cameraActive?"online":""}`}/><div><strong>{mode==="pdf"?pdfName:mode==="board"?"Untitled canvas":"No document open"}</strong><small>{mode==="pdf"?`${pageCount} pages · local session`:"Private · processed on device"}</small></div></div><div className="top-actions"><button className="ghost-button learn-gestures-button" onClick={()=>setShowGuide(true)}>Learn gestures</button><div className="clean-toggle"><div><strong>Clean handwriting</strong><small>{cleanStatus}</small></div><button role="switch" aria-checked={autoClean} className={autoClean?"on":""} onClick={()=>{setAutoClean(!autoClean);setCleanStatus(!autoClean?"Ready":"Off");}}><span/></button></div><button className={`ghost-button ${showSearch?"active":""}`} onClick={()=>setShowSearch(!showSearch)}><Icon name="search"/><span>Quick Look</span></button><button className="primary-button" onClick={()=>fileInputRef.current?.click()}><Icon name="upload"/><span>Open PDF</span></button><input ref={fileInputRef} type="file" accept="application/pdf" hidden onChange={handlePdfUpload}/></div></header>
     <section className={`air-workspace ${cameraActive&&mode==="board"&&lessonMode==="document"?"camera-focus":""} ${lessonMode!=="document"&&mode!=="welcome"?"lab-focus":""}`}>
       <aside className="tool-dock" aria-label="Tools"><div className="dock-logo"><Icon name="grid" size={17}/></div><div className="dock-divider"/>{(["pointer","pen","highlighter","eraser"]as Tool[]).map((item)=><button key={item} className={`dock-button ${tool===item?"active":""}`} onClick={()=>setTool(item)} title={item}><Icon name={item}/></button>)}<div className="dock-divider"/><div className="color-rail">{["#1473e6","#22a06b","#f5c542","#e5484d","#1d2228"].map((item)=><button key={item} aria-label={`Use ${item}`} className={color===item?"selected":""} style={{background:item}} onClick={()=>setColor(item)}/>)}</div><div className="dock-spacer"/><button className="dock-button" onClick={clearInk} title="Clear ink"><Icon name="undo"/></button></aside>
       <section className="stage-shell"><div className={`spatial-stage ${cameraActive&&mode==="board"&&lessonMode==="document"?"camera-live":cameraActive&&mode!=="welcome"?"presenter-live":""}`}>{cameraActive&&mode!=="welcome"&&<><video ref={stageVideoRef} className="stage-camera" muted playsInline autoPlay/><canvas ref={spatialHandsRef} className="spatial-hand-overlay" width={1280} height={720}/></>}{cameraActive&&mode==="board"&&lessonMode==="document"&&<div className="writing-zone"><span>WRITING SPACE</span></div>}<div className="ambient-grid"/>
@@ -247,12 +270,13 @@ export default function AirBoard() {
         {mode!=="welcome"&&<div className={`document-viewport ${showSearch&&lessonMode==="document"?"with-search":""}`}><div className="document-space"><div ref={documentRef} className={`document-surface ${lessonMode==="document"?mode:"board lab-surface"}`} style={{transform:`scale(${lessonMode==="document"?scale:1})`}}>{lessonMode==="document"?(mode==="pdf"?<canvas ref={pdfCanvasRef} className="pdf-layer"/>:<div className="board-copy"><span>INFINITE CANVAS</span><h2>Think out loud.</h2><p>Pinch your index finger and thumb to begin.</p></div>):<LiveLabWorkspace mode={lessonMode} room={room} notify={notify}/>}<svg className="highlight-layer" style={{display:lessonMode==="document"?undefined:"none"}}>{highlights.filter((item)=>item.page===page).map((item)=><rect key={item.id} x={item.rect.left} y={item.rect.top} width={item.rect.width} height={item.rect.height} rx="3" fill={item.color} opacity=".34"/>)}<rect ref={hoverRectRef} className="magnetic-line" style={{display:"none"}} rx="3"/></svg><canvas ref={inkCanvasRef} className="ink-layer" style={{pointerEvents:lessonMode==="document"?undefined:"none"}} width={1200} height={720} onPointerDown={(event)=>{if(tool==="pointer")return;event.currentTarget.setPointerCapture(event.pointerId);activeStrokePoints.current=[];lastPoint.current=pointerToCanvas(event);}} onPointerMove={(event)=>{if(!event.currentTarget.hasPointerCapture(event.pointerId)||!lastPoint.current)return;const next=pointerToCanvas(event);drawStroke(lastPoint.current,next,tool==="eraser");lastPoint.current=next;}} onPointerUp={(event)=>{event.currentTarget.releasePointerCapture(event.pointerId);lastPoint.current=null;finishStroke();}}/><div ref={cursorRef} className={`spatial-cursor ${tool}`}><span/></div></div></div>
           {showSearch&&lessonMode==="document"&&<aside className="air-lens-panel"><div className="lens-header"><div><Icon name="search" size={16}/><strong>Quick Look</strong><small>WEB RESEARCH</small></div><button onClick={()=>setShowSearch(false)}><Icon name="close"/></button></div><div className="lens-body"><div className="lens-label">Captured passage</div><blockquote>{selectedPassage||"Hover a line in your PDF and hold a closed fist for one second."}</blockquote><label htmlFor="air-search">Search the open web</label><div className="search-field"><Icon name="search" size={16}/><textarea id="air-search" value={searchText} onChange={(event)=>setSearchText(event.target.value)} placeholder="Search this passage…"/></div><div className="search-engines"><button onClick={()=>openSearch("google")}><span>G</span><div><strong>Web search</strong><small>Broad results</small></div><Icon name="external" size={14}/></button><button onClick={()=>openSearch("wikipedia")}><span>W</span><div><strong>Wikipedia</strong><small>Quick context</small></div><Icon name="external" size={14}/></button><button onClick={()=>openSearch("scholar")}><span>S</span><div><strong>Scholar</strong><small>Research papers</small></div><Icon name="external" size={14}/></button></div><div className="lens-tip"><span>FIST</span><p>Hold over any PDF line to replace this passage hands-free.</p></div></div></aside>}
         </div>}
+        {mode!=="welcome"&&lessonMode!=="document"&&cameraActive&&<div className="coding-gesture-status" role="status">{gesture}</div>}
         {mode!=="welcome"&&lessonMode==="document"&&<><div className="stage-status"><span className={`status-beacon ${cameraActive?"active":""}`}/><div><small>LIVE GESTURE</small><strong>{gesture}</strong></div><b>{confidence?`${confidence}%`:"—"}</b></div>{mode==="pdf"&&<div className="page-control"><button disabled={page<=1} onClick={()=>changePage(-1)}><Icon name="chevronLeft"/></button><span><b>{page}</b> / {pageCount}</span><button disabled={page>=pageCount} onClick={()=>changePage(1)}><Icon name="chevronRight"/></button></div>}<div className="zoom-control"><button onClick={()=>{const next=Math.max(.72,scale-.15);setScale(next);room.update({scale:next});}}>−</button><span>{Math.round(scale*100)}%</span><button onClick={()=>{const next=Math.min(3.2,scale+.15);setScale(next);room.update({scale:next});}}>+</button></div></>}
       </div></section>
       <aside className="intelligence-rail"><div className="camera-card"><div className="camera-visual"><video ref={videoRef} muted playsInline/><canvas ref={handHudRef} width={280} height={198}/><div className="scan-line"/><div className="camera-corners"><i/><i/><i/><i/></div>{!cameraActive&&<button onClick={startVision}><Icon name="camera"/><span>Start camera</span></button>}</div><div className="camera-meta"><span className={cameraActive?"online":""}/><div><strong>{trackerStatus}</strong><small>{cameraActive?"2-HAND · 21 POINT MESH":"NO VIDEO IS RECORDED"}</small></div></div></div>
         <div className="rail-section"><div className="rail-title"><span>Gesture controls</span><button onClick={()=>setShowGuide(!showGuide)}>{showGuide?"Hide":"Learn"}</button></div><div className="gesture-list"><div><span className="gesture-glyph pinch">⌁</span><p><strong>Pinch + move</strong><small>Write or annotate</small></p><b>01</b></div><div><span className="gesture-glyph palm">✋</span><p><strong>Open-palm swipe</strong><small>Navigate pages</small></p><b>02</b></div><div><span className="gesture-glyph expand">↔</span><p><strong>Two-hand span</strong><small>Continuous zoom</small></p><b>03</b></div><div><span className="gesture-glyph fist">●</span><p><strong>Fist dwell</strong><small>Capture to Quick Look</small></p><b>04</b></div></div></div>
         {showGuide&&<div className="calibration-note"><span>CALIBRATION TIP</span><p>Keep shoulders relaxed and your whole hand inside the camera frame. A deliberate hold beats a fast pose.</p></div>}<div className="rail-section session-section"><div className="rail-title"><span>Session</span><em>LOCAL</em></div><div className="metric-grid"><div><small>DOCUMENT</small><strong>{mode==="pdf"?pageCount:"∞"}</strong><span>{mode==="pdf"?"pages":"canvas"}</span></div><div><small>MARKS</small><strong>{highlights.length}</strong><span>saved</span></div></div></div><div className="privacy-card"><span>◆</span><div><strong>On-device vision</strong><p>Camera frames never leave this browser.</p></div></div>
       </aside>
-    </section>{toast&&<div className="air-toast"><span>✦</span>{toast}</div>}
+    </section><GestureGuide open={showGuide} spatial={lessonMode!=="document"} cameraActive={cameraActive} onClose={()=>setShowGuide(false)}/>{toast&&<div className="air-toast"><span>✦</span>{toast}</div>}
   </main>;
 }

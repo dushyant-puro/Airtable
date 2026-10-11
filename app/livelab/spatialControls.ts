@@ -1,6 +1,46 @@
 export type SpatialPose = { x: number; y: number; scale: number };
 export const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
+// Separate close/release thresholds and short dwell periods reject noisy pinch frames.
+export class SpatialPinch {
+  private active = false;
+  private closing: number | null = null;
+  private opening: number | null = null;
+  update(distance: number, time: number) {
+    let started = false, ended = false;
+    if (!Number.isFinite(distance)) return { active: this.active, started, ended };
+    if (!this.active) {
+      if (distance < .22) {
+        this.closing ??= time;
+        if (time - this.closing >= 45) { this.active = true; started = true; this.closing = null; }
+      } else this.closing = null;
+    } else if (distance > .38) {
+      this.opening ??= time;
+      if (time - this.opening >= 70) { this.active = false; ended = true; this.opening = null; }
+    } else this.opening = null;
+    return { active: this.active, started, ended };
+  }
+  reset() { this.active = false; this.closing = null; this.opening = null; }
+}
+
+export function isDeliberateTap(duration: number, maxTravel: number, inside: boolean) {
+  return inside && duration >= 80 && duration <= 750 && maxTravel <= 18;
+}
+
+export class ConfirmHold {
+  private since: number | null = null;
+  private fired = false;
+  update(inside: boolean, time: number) {
+    if (this.fired) return { progress: 1, fire: false };
+    if (!inside) { this.since = null; return { progress: 0, fire: false }; }
+    this.since ??= time;
+    const progress = clamp((time - this.since) / 900, 0, 1);
+    if (progress === 1) this.fired = true;
+    return { progress, fire: progress === 1 };
+  }
+  reset() { this.since = null; this.fired = false; }
+}
+
 export function translatePose(pose: SpatialPose, dx: number, dy: number, stage: { width: number; height: number }, object: { width: number; height: number }): SpatialPose {
   return { ...pose, x: clamp(pose.x + dx / stage.width * 100, 0, Math.max(0, 100 - object.width * pose.scale / stage.width * 100)), y: clamp(pose.y + dy / stage.height * 100, 0, Math.max(0, 100 - object.height * pose.scale / stage.height * 100)) };
 }

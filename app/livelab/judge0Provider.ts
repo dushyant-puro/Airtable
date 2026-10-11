@@ -4,14 +4,18 @@ export class CompilerFailure extends Error {
   status: number;
   constructor(message: string, status = 502) { super(message); this.status = status; }
 }
-export function createCompilerClient(baseUrl: string, key?: string, request: typeof fetch = fetch, pause: (ms: number) => Promise<void> = ms => new Promise(resolve => setTimeout(resolve, ms))) {
+export function createCompilerClient(baseUrl: string, key?: string, request: typeof fetch = fetch, pause: (ms: number) => Promise<void> = ms => new Promise(resolve => setTimeout(resolve, ms)), rapidApiHost?: string) {
   const base = baseUrl.replace(/\/$/, ""), headers: Record<string,string> = { "Content-Type": "application/json" };
-  if (key) headers["X-Auth-Token"] = key;
+  if (rapidApiHost) {
+    if (!key) throw new CompilerFailure("RapidAPI compiler needs JUDGE0_API_KEY on the server.", 503);
+    headers["X-RapidAPI-Key"] = key;
+    headers["X-RapidAPI-Host"] = rapidApiHost;
+  } else if (key) headers["X-Auth-Token"] = key;
   const json = async (path: string, init?: RequestInit) => {
     let response: Response;
     try { response = await request(`${base}${path}`, { ...init, headers, signal: AbortSignal.timeout(8000), cache: "no-store" }); }
     catch { throw new CompilerFailure("Compiler timed out or is unreachable. Retry without changing your source."); }
-    if (!response.ok) throw new CompilerFailure(`Compiler returned HTTP ${response.status}. Check its configuration.`);
+    if (!response.ok) throw new CompilerFailure(response.status===401||response.status===403?"Compiler authentication failed. Check the server API key and authentication mode.":response.status===429?"Compiler quota or rate limit reached. Try again later.":`Compiler returned HTTP ${response.status}. Check its configuration.`);
     try { return await response.json(); } catch { throw new CompilerFailure("Compiler returned an invalid response."); }
   };
   return {
