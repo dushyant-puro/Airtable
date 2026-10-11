@@ -209,3 +209,30 @@ html,body{background:#eef1f4}.air-app.light-theme{color:#1c232b;background:linea
 .spatial-sidebar .object-dock-content .glass-object header span{font-size:8px;letter-spacing:.08em}
 .spatial-sidebar .object-dock-content .glass-object header button{position:static;width:auto!important;margin:0!important;font-size:11px}
 @media(max-width:760px){.spatial-sidebar.object-dock{top:96px;bottom:8px;width:calc(100% - 32px)}.movable-visual{width:90%;height:46%}.visual-manipulation{font-size:11px;flex-wrap:wrap}.visual-manipulation output{font-size:10px}.floating-code{height:auto!important}.stage-runtime-bar{flex-wrap:wrap}.unified-ink{top:154%}.floating-math{top:113%!important}}
+
+/* Keep the presenter clear: model information and execution live at the stage edge. */
+.visualization-bottom-bar{position:absolute;z-index:27;left:12px;right:12px;bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:12px 16px;border:1px solid #83eafa55;border-radius:14px;background:#071d29f5;box-shadow:0 8px 30px #0006,inset 0 1px 0 #c5faff12;backdrop-filter:blur(18px);color:#e8fcff}
+.bottom-visual-title{min-width:0;flex:1}
+.bottom-visual-title span{display:block;color:#80edff;font:10px ui-monospace,monospace;letter-spacing:.1em}
+.bottom-visual-title strong{display:block;margin-top:3px;font-size:19px;line-height:1.2}
+.bottom-visual-title small{display:block;margin-top:4px;color:#b8d7df;font-size:12px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:430px}
+.bottom-visual-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.visualization-bottom-bar button{min-height:34px;padding:7px 10px;border:1px solid #76e9ff55;border-radius:8px;background:#123746;color:#dffaff;font:600 12px "Segoe UI",sans-serif;cursor:pointer;white-space:nowrap;touch-action:manipulation}
+.visualization-bottom-bar button:disabled{opacity:.45;cursor:not-allowed}
+.visualization-bottom-bar button:focus-visible,.bottom-visual-details summary:focus-visible{outline:2px solid #baf9ff;outline-offset:3px}
+.visualization-bottom-bar .visual-run-action{background:#155264;border-color:#75eaff88}
+.visual-zoom-controls{display:flex;align-items:center;gap:5px}
+.visual-zoom-controls output{min-width:44px;text-align:center;color:#e5fcff;font:12px ui-monospace,monospace}
+.visual-zoom-controls button{min-width:32px;font-size:17px;line-height:1}
+.bottom-visual-details{position:relative}
+.bottom-visual-details summary{list-style:none;border:1px solid #76e9ff55;border-radius:8px;padding:9px 10px;color:#dffaff;font:600 12px "Segoe UI",sans-serif;cursor:pointer}
+.bottom-visual-details summary::-webkit-details-marker{display:none}
+.bottom-visual-details .holo-caption{display:block;position:absolute;left:auto;right:0;bottom:52px;width:min(360px,calc(100vw - 48px));max-width:none;margin:0;padding:16px;border:1px solid #83eafa66;border-radius:12px;background:#071d29fa;box-shadow:0 12px 35px #0008}
+.bottom-visual-details .holo-caption strong{font-size:22px}
+.bottom-visual-details .holo-caption p{font-size:13px;line-height:1.5}
+.bottom-alu-result{font:12px ui-monospace,monospace;color:#b6f4ff}
+.spatial-sidebar.object-dock{bottom:116px}
+.unified-stage>.movable-visual>.visual-manipulation{width:auto;right:auto}
+.unified-stage>.movable-visual>.object-dock-action{left:124px;right:auto}
+@media(max-width:1100px){.visualization-bottom-bar{flex-wrap:wrap;gap:8px}.bottom-visual-title{flex-basis:100%;display:flex;align-items:baseline;gap:10px}.bottom-visual-title span{font-size:9px}.bottom-visual-title strong{font-size:17px;margin:0}.bottom-visual-title small{margin:0;flex:1}.bottom-visual-actions{flex-wrap:wrap;width:100%}.spatial-sidebar.object-dock{bottom:130px}}
+@media(max-width:760px){.visualization-bottom-bar{position:fixed;left:16px;right:16px;bottom:12px;padding:10px;gap:8px}.bottom-visual-title small{display:none}.bottom-visual-actions{gap:6px}.visualization-bottom-bar button{padding:7px 8px;font-size:11px}.visual-zoom-controls button{font-size:16px}.bottom-visual-details{margin-left:auto}.spatial-sidebar.object-dock{bottom:146px}}
