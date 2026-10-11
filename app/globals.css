@@ -158,3 +158,54 @@ html,body{background:#eef1f4}.air-app.light-theme{color:#1c232b;background:linea
 .object-dock .part-callout{right:8px;bottom:8px;width:calc(100% - 16px);padding:10px}
 .object-dock .part-callout h3{font-size:16px;margin:2px 0}
 @media(max-width:760px){.spatial-stage-actions{flex-wrap:wrap;right:8px}.object-dock{top:96px;bottom:14px;right:8px;width:calc(100% - 16px)}}
+
+/* One tools drawer: subjects, instruments and docked lesson objects together. */
+.spatial-sidebar.object-dock{left:16px;right:auto;top:68px;bottom:60px;width:min(390px,calc(100% - 32px));display:block;padding:16px;overflow:auto;scrollbar-width:thin}
+.spatial-sidebar.object-dock[hidden]{display:none}
+.spatial-sidebar.object-dock>header{padding-right:34px}
+.instrument-settings>summary,.spatial-gesture-guide>summary{padding:10px 0;color:#aef8ff;cursor:pointer;font-size:13px;font-weight:600}
+.object-dock .object-dock-content{overflow:visible;padding:6px 0;gap:14px}
+.object-dock .object-dock-summary{padding:10px 0;border-top:1px solid #89eaff33;margin-top:12px}
+.object-dock .object-dock-summary button{width:auto;margin:0;min-height:30px}
+.spatial-sidebar .object-dock-content button{width:auto;min-height:28px;margin:0;text-align:center;padding:6px 9px}
+.spatial-sidebar .object-dock-content input{margin-top:0}
+.object-dock .object-dock-empty{padding:0;font-size:12px}
+.object-dock .holo-caption{width:auto!important;max-width:none!important}
+.movable-visual{inset:auto;width:58%;height:80%;touch-action:none}
+.movable-visual:focus-visible{outline:1px dashed #a1efff;outline-offset:5px;border-radius:12px}
+.movable-visual.air-grabbed{outline:1px solid #7ef5ff66;border-radius:12px}
+.movable-visual canvas{cursor:grab;touch-action:none}
+.visual-manipulation{position:absolute;z-index:8;left:8px;right:86px;top:8px;min-height:32px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 9px;background:#051f2bdd;border:1px solid #89eaff44;border-radius:9px;cursor:grab;touch-action:none;color:#d7fbff;font-size:12px}
+.visual-manipulation>div{display:flex;align-items:center;gap:5px}
+.visual-manipulation button{border:1px solid #83eafa44;background:#103b4a;color:#d5fcff;border-radius:6px;width:28px;height:25px;cursor:pointer}
+.visual-manipulation output{min-width:37px;text-align:center;font:11px ui-monospace,monospace}
+.movable-visual>.visual-manipulation{right:auto;width:min(390px,calc(100% - 84px))}
+.movable-visual>.object-dock-action{left:min(414px,calc(100% - 74px));right:auto}
+.object-dock .movable-visual>.object-dock-action{left:auto;right:8px}
+.semiconductor-hologram>.object-dock-action,.pcb-world>.object-dock-action{left:auto;right:8px;top:8px}
+.object-dock .visual-manipulation{flex-wrap:wrap;right:76px;font-size:11px}
+.object-dock .semiconductor-hologram canvas{margin-top:40px;height:250px!important}
+.hologram-model{filter:brightness(var(--visual-brightness,1.2)) drop-shadow(0 0 4px #72f1ff85) drop-shadow(0 7px 7px #000c)}
+.pcb-board{filter:brightness(var(--visual-brightness,1.2)) drop-shadow(0 9px 10px #000a)}
+.floating-code{height:auto;min-height:310px}
+.floating-code textarea{height:142px;resize:vertical;min-height:90px;max-height:320px}
+.stage-runtime-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;background:#061b26dd;border-bottom:1px solid #72edff22;cursor:default;touch-action:auto}
+.stage-runtime-bar label{display:flex;align-items:center;gap:6px;margin:0!important;color:#a1c9d4;font:10px ui-monospace,monospace}
+.stage-runtime-bar select{width:100px;background:#123947;color:#e3fdff;border:1px solid #6aebff55;border-radius:6px;padding:5px;font:12px "Segoe UI",sans-serif}
+.stage-runtime-bar>span{min-width:0;color:#b1d4de;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stage-runtime-bar button,.compiler-status button{flex-shrink:0;border:1px solid #78eafa44;background:#103747;color:#cdfbff;border-radius:6px;padding:5px 7px;font-size:11px;cursor:pointer}
+.compiler-status{display:flex;align-items:center;gap:8px;padding:9px 10px;border-top:1px solid #ffcd7c33;color:#ffe2ad;font-size:11px;line-height:1.4}
+.compiler-status span{flex:1;min-width:0}
+.object-dock .floating-code{height:auto!important;min-height:310px}
+.object-dock .floating-code textarea{height:146px;touch-action:auto}
+.object-dock .stage-runtime-bar{flex-wrap:wrap}
+.object-dock .stage-runtime-bar label{font-size:10px}
+.object-dock .stage-runtime-bar>span{flex:1}
+.object-dock .pcb-viewport{top:148px}
+.unified-stage>.movable-visual>.object-dock-action{left:min(414px,calc(100% - 74px));right:auto}
+.spatial-sidebar.object-dock{scrollbar-color:#3c798d #071c29}
+.spatial-sidebar .object-dock-content .glass-object header{position:relative;height:52px;padding:0 86px 0 12px}
+.spatial-sidebar .object-dock-content .glass-object header strong{font-size:14px;margin-top:3px;letter-spacing:normal}
+.spatial-sidebar .object-dock-content .glass-object header span{font-size:8px;letter-spacing:.08em}
+.spatial-sidebar .object-dock-content .glass-object header button{position:static;width:auto!important;margin:0!important;font-size:11px}
+@media(max-width:760px){.spatial-sidebar.object-dock{top:96px;bottom:8px;width:calc(100% - 32px)}.movable-visual{width:90%;height:46%}.visual-manipulation{font-size:11px;flex-wrap:wrap}.visual-manipulation output{font-size:10px}.floating-code{height:auto!important}.stage-runtime-bar{flex-wrap:wrap}.unified-ink{top:154%}.floating-math{top:113%!important}}

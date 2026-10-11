@@ -8,6 +8,7 @@ import { FilesetResolver, GestureRecognizer } from "@mediapipe/tasks-vision";
 import { createWorker } from "tesseract.js";
 import { ClassroomControls, LiveLabWorkspace } from "./livelab/LiveLabWorkspace";
 import { usePrototypeRoom } from "./livelab/usePrototypeRoom";
+import { DockHold } from "./livelab/spatialControls";
 
 if (typeof window !== "undefined") pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
@@ -54,6 +55,7 @@ export default function AirBoard() {
   const [mode, setMode] = useState<Mode>("welcome"), [tool, setTool] = useState<Tool>("pen"), [color, setColor] = useState("#1473e6"), [trackerStatus, setTrackerStatus] = useState("Camera offline"), [gesture, setGesture] = useState("Ready when you are"), [cameraActive, setCameraActive] = useState(false), [showGuide, setShowGuide] = useState(false), [showSearch, setShowSearch] = useState(false), [searchText, setSearchText] = useState(""), [selectedPassage, setSelectedPassage] = useState(""), [pdfName, setPdfName] = useState(""), [pdfDoc, setPdfDoc] = useState<any>(null), [page, setPage] = useState(1), [pageCount, setPageCount] = useState(0), [scale, setScale] = useState(1), [lineRects, setLineRects] = useState<LineRect[]>([]), [highlights, setHighlights] = useState<Highlight[]>([]), [hoverLine, setHoverLine] = useState<LineRect | null>(null), [toast, setToast] = useState(""), [confidence, setConfidence] = useState(0), [autoClean, setAutoClean] = useState(true), [cleanStatus, setCleanStatus] = useState("Ready");
   const modeRef = useRef(mode), lessonModeRef = useRef(lessonMode), toolRef = useRef(tool), colorRef = useRef(color), pageRef = useRef(page), pageCountRef = useRef(pageCount), scaleRef = useRef(scale), linesRef = useRef(lineRects), hoverLineStateRef = useRef<LineRect | null>(null), highlightsRef = useRef(highlights);
   const airInkLast = useRef<Point | null>(null), airInkCanvas = useRef<HTMLCanvasElement | null>(null), spatialHandsRef=useRef<HTMLCanvasElement>(null);
+  const dockHold=useRef(new DockHold()),spatialZoomArm=useRef<{since:number;target:string}|null>(null);
   const spatialSession=useRef<{pinch:boolean;target:string;start:Point|null;control:HTMLElement|null;fist:number;fistFired:boolean;zoom:boolean;angle:number|null}>({pinch:false,target:"model",start:null,control:null,fist:0,fistFired:false,zoom:false,angle:null});
   const visionStarting=useRef(false),visionCleanup=useRef<(()=>void)|null>(null);
   useEffect(()=>()=>{visionCleanup.current?.();},[]);
@@ -116,11 +118,23 @@ export default function AirBoard() {
     const end=()=>{if(session.pinch||session.zoom){emit({phase:"end"});airInkCanvas.current?.dispatchEvent(new CustomEvent("air-ink-complete"));}session.pinch=false;session.zoom=false;session.control=null;airInkLast.current=null;airInkCanvas.current=null;};
     if(hands.length===2&&hands.every(palm)){
       if(session.pinch)end();session.fist=0;
-      const a=hands[0][8],b=hands[1][8],distance=Math.hypot(a.x-b.x,a.y-b.y);
-      if(!session.zoom){session.zoom=true;const element=document.elementFromPoint(point.x,point.y);session.target=element?.closest<HTMLElement>("[data-spatial-id]")?.dataset.spatialId||session.target;}
+      dockHold.current.reset();
+      const a=hands[0][9],b=hands[1][9],distance=Math.hypot((a.x-b.x)*rect.width/rect.height,a.y-b.y);
+      if(distance<.12){setGestureLabel("Separate both palms to arm zoom");return true;}
+      if(!session.zoom){const target=document.elementFromPoint(point.x,point.y)?.closest<HTMLElement>("[data-spatial-id]")?.dataset.spatialId;if(!target||!["model","code","math","asset"].includes(target)){spatialZoomArm.current=null;setGestureLabel("Point at a visual or card with two open palms");return true;}if(!spatialZoomArm.current||spatialZoomArm.current.target!==target)spatialZoomArm.current={since:timestamp,target};if(timestamp-spatialZoomArm.current.since<220){setGestureLabel("Hold both palms · zoom arming");return true;}session.zoom=true;session.target=spatialZoomArm.current.target;}
       emit({phase:"zoom",target:session.target,distance});setGestureLabel(`Scaling ${session.target} · spread palms`);return true;
     }
+    spatialZoomArm.current=null;
     if(session.zoom)end();
+    if(hands.length===1&&name==="Victory"){
+      if(session.pinch)end();session.fist=0;
+      const target=document.elementFromPoint(point.x,point.y)?.closest<HTMLElement>("[data-spatial-id]");
+      const id=target&&!target.classList.contains("docked-object")?target.dataset.spatialId??null:null;
+      const hold=dockHold.current.update(id,timestamp);
+      if(hold.fire&&id)emit({phase:"dock",target:id});
+      setGestureLabel(id?hold.progress===1?"Object docked · release V sign":`Dock ${id} to tools · ${Math.round(hold.progress*100)}%`:"V sign: point at a floating object");return true;
+    }
+    dockHold.current.reset();
     if(name==="Closed_Fist"){
       if(session.pinch)end();if(!session.fist)session.fist=timestamp;
       if(timestamp-session.fist>850&&!session.fistFired){emit({phase:"sidebar"});session.fistFired=true;}
@@ -132,7 +146,7 @@ export default function AirBoard() {
       session.pinch=true;session.start=point;
       const element=document.elementFromPoint(point.x,point.y),header=element?.closest<HTMLElement>("[data-air-grab]");
       session.control=element?.closest<HTMLElement>('button,input[type="range"]')||null;
-      session.target=session.control?.matches('input[type="range"]')?"slider":header&&!session.control?header.dataset.airGrab!:element?.closest("canvas[data-air-ink]")?"ink":"control";
+      session.target=session.control?.matches('input[type="range"]')?"slider":header&&!session.control?header.dataset.airGrab!:element?.closest("canvas[data-air-ink]")?"ink":element?.closest('[data-spatial-id="model"]')&&!session.control?"model":"control";
       airInkLast.current=null;emit({phase:"start",target:session.target,...point});
     }
     if(session.pinch&&pinchDistance>.38){
@@ -168,7 +182,7 @@ export default function AirBoard() {
         if (!running || !videoRef.current) return; const currentVideo = videoRef.current;
         if (currentVideo.readyState >= 2 && currentVideo.currentTime !== lastVideoTime) {
           lastVideoTime = currentVideo.currentTime; const result = landmarker.recognizeForVideo(currentVideo, timestamp), hands = result.landmarks ?? []; drawHandHud(hands); setConfidence(hands.length ? Math.round((result.gestures?.[0]?.[0]?.score ?? result.handedness?.[0]?.[0]?.score ?? .9) * 100) : 0);
-          if (!hands.length) { if(spatialSession.current.pinch||spatialSession.current.zoom){window.dispatchEvent(new CustomEvent("air-spatial",{detail:{phase:"end"}}));airInkCanvas.current?.dispatchEvent(new CustomEvent("air-ink-complete"));}spatialSession.current.pinch=false;spatialSession.current.zoom=false;spatialSession.current.fist=0;spatialSession.current.fistFired=false;airInkLast.current=null;airInkCanvas.current=null;setGestureLabel("Waiting for hand"); filterX.current.reset(); filterY.current.reset(); stablePoint.current=null;lastPoint.current = null; swipeTrack.current = null;openPalmSince.current=null; zoomStart.current = null;zoomArmedSince.current=null; if (cursorRef.current) cursorRef.current.style.opacity = "0"; }
+          if (!hands.length) { dockHold.current.reset();spatialZoomArm.current=null; if(spatialSession.current.pinch||spatialSession.current.zoom){window.dispatchEvent(new CustomEvent("air-spatial",{detail:{phase:"end"}}));airInkCanvas.current?.dispatchEvent(new CustomEvent("air-ink-complete"));}spatialSession.current.pinch=false;spatialSession.current.zoom=false;spatialSession.current.fist=0;spatialSession.current.fistFired=false;airInkLast.current=null;airInkCanvas.current=null;setGestureLabel("Waiting for hand"); filterX.current.reset(); filterY.current.reset(); stablePoint.current=null;lastPoint.current = null; swipeTrack.current = null;openPalmSince.current=null; zoomStart.current = null;zoomArmedSince.current=null; if (cursorRef.current) cursorRef.current.style.opacity = "0"; }
           else {
             const hand=hands[0],thumb=hand[4],index=hand[8],middle=hand[12],ring=hand[16],pinky=hand[20],wrist=hand[0],canvas=inkCanvasRef.current;if(!canvas)return;
             const palm=Math.hypot(wrist.x-hand[9].x,wrist.y-hand[9].y)||.15,pinchDistance=Math.hypot(index.x-thumb.x,index.y-thumb.y)/palm,open=[index.y<hand[6].y,middle.y<hand[10].y,ring.y<hand[14].y,pinky.y<hand[18].y],extendedCount=open.filter(Boolean).length,thumbOpen=Math.hypot(thumb.x-hand[2].x,thumb.y-hand[2].y)/palm>.5,recognizedGesture=result.gestures?.[0]?.[0],recognizedName=recognizedGesture?.categoryName??"None",recognizedScore=recognizedGesture?.score??0;
@@ -179,7 +193,7 @@ export default function AirBoard() {
             if(cursorRef.current){cursorRef.current.style.opacity="1";cursorRef.current.style.transform=`translate3d(${x}px,${y}px,0)`;}
             const line=modeRef.current==="pdf"?findLine(x,y):null;updateHoverLine(line);
             const handIsOpen=(candidate:any,indexOfHand:number)=>{const classification=result.gestures?.[indexOfHand]?.[0];return(classification?.categoryName==="Open_Palm"&&classification.score>.62)||(candidate[8].y<candidate[6].y&&candidate[12].y<candidate[10].y&&candidate[16].y<candidate[14].y&&candidate[20].y<candidate[18].y);};
-            if(routeSpatialHands(hands,x,y,pinchDistance,recognizedScore>.7?recognizedName:"None",timestamp)){
+            if(routeSpatialHands(hands,x,y,pinchDistance,recognizedScore>(recognizedName==="Victory"?.85:.7)?recognizedName:"None",timestamp)){
               lastPoint.current=null;
             }else if(hands.length===2){
               openPalmSince.current=null;swipeTrack.current=null;lastPoint.current=null;

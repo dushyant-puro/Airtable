@@ -20,6 +20,10 @@ export interface LessonRoomState {
   language: RuntimeId;
   codeOutput: string;
   stageCode: string;
+  stageLanguage: import("./codeRuntimes").StageLanguage;
+  stageCodeDrafts: Partial<Record<import("./codeRuntimes").StageLanguage, string>>;
+  stageModelPose: {x:number;y:number;scale:number};
+  stageBrightness: number;
   stageCodeOutput: string;
   stageFormula: string;
   stageSelectedPart: string;
@@ -66,6 +70,10 @@ export const defaultRoomState: LessonRoomState = {
   codeOutput: "Ready. Choose a runtime and run the lesson.",
   stageCode: `const radius = 82;\nconst particles = 18;\nconsole.log("Orbit ready", radius, particles);`,
   stageCodeOutput: "Ready to execute",
+  stageLanguage: "javascript",
+  stageCodeDrafts: {},
+  stageModelPose: {x:14,y:10,scale:1},
+  stageBrightness: 1.2,
   stageFormula: "sin(x) + 0.45 * sin(3*x)",
   stageSelectedPart: "cpu",
   stageRemovedParts: [],

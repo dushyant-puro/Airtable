@@ -1,31 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
+import { CompilerFailure, createCompilerClient } from "../../livelab/judge0Provider";
 
 export const dynamic = "force-dynamic";
+const recentJobs = new Map<string,{since:number;count:number}>();
 
 export async function GET() {
-  const baseUrl = process.env.JUDGE0_BASE_URL;
-  if (!baseUrl) return NextResponse.json({ configured: false, runtimes: [] });
-  try {
-    const response = await fetch(`${baseUrl.replace(/\/$/, "")}/languages`, { headers: process.env.JUDGE0_API_KEY ? { "X-Auth-Token": process.env.JUDGE0_API_KEY } : undefined });
-    if (!response.ok) throw new Error("Runtime catalogue unavailable");
-    return NextResponse.json({ configured: true, runtimes: await response.json() });
-  } catch (error) {
-    return NextResponse.json({ configured: false, runtimes: [], error: error instanceof Error ? error.message : "Unavailable" }, { status: 502 });
-  }
+  const base = process.env.JUDGE0_BASE_URL;
+  if (!base) return NextResponse.json({configured:false,runtimes:[]});
+  try { return NextResponse.json({configured:true,runtimes:await createCompilerClient(base,process.env.JUDGE0_API_KEY).listRuntimes()}); }
+  catch { return NextResponse.json({configured:false,runtimes:[],error:"Compiler unavailable. Check JUDGE0_BASE_URL and retry."},{status:502}); }
 }
 
 export async function POST(request: NextRequest) {
-  const baseUrl = process.env.JUDGE0_BASE_URL;
-  if (!baseUrl) return NextResponse.json({ error: "Judge0 is not configured. Browser runtimes remain available." }, { status: 503 });
-  const { sourceCode, languageId, stdin = "" } = await request.json();
-  if (typeof sourceCode !== "string" || sourceCode.length > 50_000) return NextResponse.json({ error: "Source code is missing or too large." }, { status: 400 });
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (process.env.JUDGE0_API_KEY) headers["X-Auth-Token"] = process.env.JUDGE0_API_KEY;
-  const response = await fetch(`${baseUrl.replace(/\/$/, "")}/submissions?base64_encoded=false&wait=true`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ source_code: sourceCode, language_id: languageId, stdin, cpu_time_limit: 3, wall_time_limit: 5, memory_limit: 131072 }),
-  });
-  const result = await response.json();
-  return NextResponse.json({ output: result.stdout || result.compile_output || result.stderr || result.message || result.status?.description || "Finished" }, { status: response.ok ? 200 : response.status });
+  if (Number(request.headers.get("content-length")) > 100000) return NextResponse.json({error:"Execution request is too large."},{status:413});
+  let body;
+  try { body = await request.json(); } catch { return NextResponse.json({error:"Send a valid JSON execution request."},{status:400}); }
+  const {sourceCode,languageId,stdin=""}=body??{};
+  if(typeof sourceCode!=="string"||!sourceCode.trim()||sourceCode.length>50000||!Number.isInteger(languageId)||languageId<=0||typeof stdin!=="string"||stdin.length>10000) return NextResponse.json({error:"Provide source up to 50 KB, a valid language ID and input up to 10 KB."},{status:400});
+  const base=process.env.JUDGE0_BASE_URL;
+  if(!base)return NextResponse.json({error:"Configure JUDGE0_BASE_URL to run C, C++ or Java. Editing and source projection remain available."},{status:503});
+  // Coarse prototype guard, not a replacement for authenticated per-user limits.
+  const now=Date.now(),client=request.headers.get("x-forwarded-for")?.split(",")[0]??"local";
+  for(const [id,value] of recentJobs)if(now-value.since>60000)recentJobs.delete(id);
+  const window=recentJobs.get(client)??{since:now,count:0};
+  if(window.count>=10)return NextResponse.json({error:"Execution limit reached. Wait one minute and retry."},{status:429});
+  window.count++;recentJobs.set(client,window);
+  try { return NextResponse.json(await createCompilerClient(base,process.env.JUDGE0_API_KEY).execute(sourceCode,languageId,stdin)); }
+  catch(error){ return NextResponse.json({error:error instanceof CompilerFailure?error.message:"Compiler failed. Your source was not changed."},{status:error instanceof CompilerFailure?error.status:502}); }
 }

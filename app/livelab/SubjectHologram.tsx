@@ -62,7 +62,7 @@ export function SubjectHologram(props:Props) {
         p.code.split("\n").slice(0,7).forEach((line,i)=>{const v=project(-1.75,-1.02+i*.17,0);ctx.fillStyle=i===0?gold:ice;ctx.fillText(line.slice(0,58),v.x,v.y,unit*3.5);});ctx.shadowBlur=0;
       }
       ctx.textAlign="center";ctx.font="600 12px Segoe UI";
-      for(const label of shape.current.labels){const v=project(label.x,label.y,label.z);ctx.fillStyle="#03151edb";const width=ctx.measureText(label.text).width;ctx.fillRect(v.x-width/2-7,v.y-14,width+14,22);ctx.fillStyle=ice;ctx.fillText(label.text,v.x,v.y);}
+      for(const label of shape.current.labels){const v=project(label.x,label.y,label.z),width=Math.min(w-24,ctx.measureText(label.text).width),x=Math.max(width/2+10,Math.min(w-width/2-10,v.x)),y=Math.max(20,Math.min(h-12,v.y));ctx.fillStyle="#03151edb";ctx.fillRect(x-width/2-7,y-14,width+14,22);ctx.fillStyle=ice;ctx.fillText(label.text,x,y,w-24);}
     };frame=requestAnimationFrame(render);return()=>cancelAnimationFrame(frame);
   },[]);
   return <canvas className="hologram-model" ref={canvasRef} role="img" aria-label={`${props.subject} interactive particle visualization`}/>;
