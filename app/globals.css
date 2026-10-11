@@ -116,3 +116,45 @@ html,body{background:#eef1f4}.air-app.light-theme{color:#1c232b;background:linea
 @media(min-width:761px){.floating-code,.floating-math{left:var(--card-left)!important}}
 @media(max-width:760px){.subject-hologram .holo-caption{display:block;left:5%;bottom:-110px;width:90%;max-width:none}.subject-hologram .holo-caption strong{font-size:19px}.subject-hologram .holo-caption p{font-size:11px;margin:3px 0}.subject-hologram .holo-caption span{display:none}}
 @media(max-width:760px){.spatial-stage-actions{top:8px;left:8px}.spatial-stage-actions button{padding:8px;font-size:11px}.spatial-sidebar{top:53px;bottom:8px}.semiconductor-hologram{inset:10% 0 42%}.holo-caption{display:none}.floating-code{min-height:240px}.spatial-hand-overlay{display:none}}
+
+/* Optional docking keeps the original holographic stage and saved floating poses. */
+.object-dock{position:absolute;z-index:29;right:14px;top:70px;bottom:62px;width:min(380px,calc(100% - 28px));display:flex;flex-direction:column;border:1px solid #89eaff55;border-radius:17px;background:#041724ee;box-shadow:0 22px 70px #0007;backdrop-filter:blur(22px);overflow:hidden}
+.object-dock[hidden]{display:none}
+.object-dock-heading{display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid #89eaff25}
+.object-dock-heading span{display:block;color:#7ceaff;font:10px ui-monospace,monospace;letter-spacing:.12em}
+.object-dock-heading strong{display:block;margin-top:5px;font-size:17px;color:#edfcff}
+.object-dock-heading button{width:32px;height:32px;border:1px solid #89eaff33;border-radius:9px;color:#c9f6ff;background:#113346;font-size:22px}
+.object-dock-summary{padding:10px 14px;display:flex;align-items:center;justify-content:space-between;color:#a6c8d6;font-size:12px;gap:8px}
+.object-dock-summary button,.object-dock-action{border:1px solid #81eaff66;border-radius:7px;background:#103747;color:#b8f5ff;font:600 12px "Segoe UI",sans-serif;padding:6px 9px;cursor:pointer;white-space:nowrap}
+.object-dock-action{position:absolute;right:8px;top:8px;z-index:8;pointer-events:auto;touch-action:manipulation}
+.semiconductor-hologram>.object-dock-action,.pcb-world>.object-dock-action{left:8px;right:auto}
+.object-dock .semiconductor-hologram>.object-dock-action,.object-dock .pcb-world>.object-dock-action{left:auto;right:8px}
+.dockable-object.glass-object header{padding-right:86px}
+.dockable-object.unified-ink>div{right:86px}
+.dockable-object.unified-ink strong{max-width:50%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dockable-object.note-stack>.object-dock-action{top:-32px;width:auto;height:auto;border-radius:7px;background:#103747;color:#b8f5ff;font-size:12px}
+.object-dock-content{display:flex;flex-direction:column;gap:14px;overflow:auto;overscroll-behavior:contain;min-height:0;padding:8px 12px 16px;scrollbar-width:thin;scrollbar-color:#3c798d #071c29}
+.object-dock-empty{padding:0 18px;color:#b4d1dc;font-size:14px;line-height:1.6}
+.object-dock .docked-object{position:relative!important;inset:auto!important;left:auto!important;top:auto!important;bottom:auto!important;right:auto!important;transform:none!important;transform-origin:center!important;width:100%!important;min-width:0!important;max-width:none!important;flex:none;touch-action:auto}
+.object-dock .floating-code{height:250px!important;min-height:250px}
+.object-dock .floating-code textarea{height:132px;font-size:13px}
+.object-dock .floating-code .code-actions{max-height:70px;overflow:auto}
+.object-dock .floating-math{height:300px!important;min-height:300px}
+.object-dock .unified-ink{height:180px!important;min-height:180px}
+.object-dock .note-stack{display:block!important;height:auto!important;pointer-events:auto;padding-top:40px}
+.object-dock .note-stack article{position:relative;margin-bottom:6px;transform:none!important}
+.object-dock .note-stack>.object-dock-action{top:4px}
+.object-dock .floating-asset{height:auto!important}
+.object-dock .floating-asset img{display:block;max-height:320px;width:100%;object-fit:contain}
+.object-dock .semiconductor-hologram{height:440px!important;border:1px solid #78eafa33;border-radius:12px;overflow:hidden;background:#061a26}
+.object-dock .semiconductor-hologram canvas{height:280px!important}
+.object-dock .holo-caption{display:block;left:12px;right:12px;bottom:12px;max-width:none;font-size:12px}
+.object-dock .holo-caption p{font-size:12px}
+.object-dock .pcb-world{height:490px!important;overflow:hidden;border:1px solid #78eafa33;border-radius:12px}
+.object-dock .pcb-toolbar{top:42px;height:auto;min-height:70px;flex-wrap:wrap;padding:10px}
+.object-dock .pcb-viewport{top:128px;bottom:120px}
+.object-dock .pcb-component{width:72px;height:52px;margin:-26px 0 0 -36px}
+.object-dock .pcb-component small{display:none}
+.object-dock .part-callout{right:8px;bottom:8px;width:calc(100% - 16px);padding:10px}
+.object-dock .part-callout h3{font-size:16px;margin:2px 0}
+@media(max-width:760px){.spatial-stage-actions{flex-wrap:wrap;right:8px}.object-dock{top:96px;bottom:14px;right:8px;width:calc(100% - 16px)}}
