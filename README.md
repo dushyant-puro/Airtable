@@ -76,3 +76,16 @@ This release is a polished classroom prototype. Shared lesson objects synchroniz
 - Pyodide and sql.js browser runtimes
 - Prototype room relay with `BroadcastChannel` fast-path
 - TypeScript and CSS
+# Holographic classroom subjects
+
+The unified scene keeps camera, floating JavaScript editor, function studio and ink together. Open **Show tools**, or hold a tracked closed fist for 850 ms, to choose Semiconductor, Mathematics, Coding, Operating systems or Computer architecture.
+
+- Coding projects up to seven source lines as luminous cyan/gold text. Run explicitly to execute JavaScript in a time-limited browser worker; numeric console output creates particle columns. This worker is not a hardened sandbox for untrusted student code.
+- Mathematics samples functions across x ∈ [−2π, 2π]. Enter `sin(x)`, `exp(-x^2/4)*cos(4*x)`, or import text containing a single expression / JSON containing `{"formula":"sin(x)"}`. File limit: 32 KB; expression limit: 500 characters. Explicit multiplication is required (`3*x`). Expressions use a restricted parser. Images/PDFs are not recognized as functions.
+- OS demonstrates round-robin scheduling with three processes, quantum one, and step/reset controls.
+- COA demonstrates a one-bit ALU, input registers, ADD/AND/OR/XOR and carry output. The explosion slider separates its particle components.
+- Pinch a floating card header to move it; two open palms scale the focused object; open-palm wrist rotation orbits the model. Mouse and visible controls remain available.
+
+Source text, selected subject, committed card poses, maths function, ALU inputs and scheduling steps use existing classroom snapshot synchronization. The server is an in-memory prototype with polling for separate devices, not authenticated production infrastructure.
+
+Run `npm run test:lesson` for parser, ALU and scheduling tests. Physical gesture accuracy and camera performance must be rehearsed on the presentation laptop.

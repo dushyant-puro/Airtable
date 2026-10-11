@@ -1,4 +1,5 @@
 export type LessonMode = "document" | "code" | "logic" | "systems";
+export type SpatialSubject = "semiconductor" | "maths" | "coding" | "os" | "coa";
 
 export type RuntimeId = "javascript" | "typescript" | "html" | "python" | "sql" | string;
 
@@ -27,6 +28,7 @@ export interface LessonRoomState {
   stageExplode: number;
   stageNotes: string[];
   stageModel: "semiconductor" | "pcb";
+  stageSubject: SpatialSubject;
   stageGateOn: boolean;
   stageRotation: number;
   stageCodePose: {x:number;y:number;scale:number};
@@ -71,6 +73,7 @@ export const defaultRoomState: LessonRoomState = {
   stageExplode: 36,
   stageNotes: [],
   stageModel: "semiconductor",
+  stageSubject: "semiconductor",
   stageGateOn: true,
   stageRotation: .1,
   stageCodePose: {x:67,y:10,scale:1},

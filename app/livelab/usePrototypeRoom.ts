@@ -31,7 +31,7 @@ export function usePrototypeRoom() {
   useEffect(() => { window.localStorage.setItem("airboard-role", role); }, [role]);
 
   const acceptSnapshot = useCallback((incoming: LessonRoomState) => {
-    setState((current) => incoming.version > current.version ? incoming : current);
+    setState((current) => incoming.version > current.version ? {...defaultRoomState,...incoming} : current);
   }, []);
 
   useEffect(() => {
