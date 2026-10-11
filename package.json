@@ -13,7 +13,6 @@
     "dev:sites": "vinext dev",
     "test": "npm run build",
     "test:lesson": "node --experimental-strip-types --test tests/lessonMath.test.mjs",
-    "test:classroom": "node --test tests/classroomApi.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate"
   },

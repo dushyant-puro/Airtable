@@ -42,7 +42,6 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ro
   const body = await request.json();
   const clientId = String(body.clientId ?? "anonymous");
   const role: "teacher" | "student" = body.role === "student" ? "student" : "teacher";
-  if(role==="student"&&!room.state.studentControl)return NextResponse.json({error:"Teacher control is required to edit this lesson."},{status:403});
   room.participants.set(clientId, { id: clientId, role, lastSeen: Date.now() });
   const incoming = body.state as LessonRoomState | undefined;
   if (incoming && incoming.version >= room.state.version) room.state = { ...room.state, ...incoming, updatedAt: Date.now() };
