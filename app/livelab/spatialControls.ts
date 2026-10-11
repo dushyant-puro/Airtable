@@ -1,6 +1,12 @@
 export type SpatialPose = { x: number; y: number; scale: number };
 export const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
+// Frame dimensions are percentages of the stage, independent of content magnification.
+export function resizeVisualFrame(pose: SpatialPose, size: number): SpatialPose {
+  const scale = clamp(Number.isFinite(size) ? size : pose.scale, .4, 1.2);
+  return { x: clamp(pose.x, 0, 100 - 58 * scale), y: clamp(pose.y, 0, 100 - 80 * scale), scale };
+}
+
 // Separate close/release thresholds and short dwell periods reject noisy pinch frames.
 export class SpatialPinch {
   private active = false;

@@ -1,8 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DockHold, SpatialPinch, ConfirmHold, isDeliberateTap, smoothZoom, translatePose } from "../app/livelab/spatialControls.ts";
+import { DockHold, SpatialPinch, ConfirmHold, isDeliberateTap, smoothZoom, translatePose, resizeVisualFrame } from "../app/livelab/spatialControls.ts";
 import { compilerFor, validRuntimes } from "../app/livelab/codeRuntimes.ts";
 import { createCompilerClient } from "../app/livelab/judge0Provider.ts";
+
+test("resizing changes frame bounds and allows corner placement without overflow",()=>{
+  assert.deepEqual(resizeVisualFrame({x:80,y:80,scale:1},.4),{x:76.8,y:68,scale:.4});
+  assert.deepEqual(resizeVisualFrame({x:76.8,y:68,scale:.4},1),{x:42,y:20,scale:1});
+  assert.deepEqual(resizeVisualFrame({x:10,y:10,scale:1},0),{x:10,y:10,scale:.4});
+  assert.deepEqual(resizeVisualFrame({x:0,y:0,scale:1},99),{x:0,y:0,scale:1.2});
+  assert.deepEqual(resizeVisualFrame({x:10,y:10,scale:.4},NaN),{x:10,y:10,scale:.4});
+});
 
 test("pinch hysteresis rejects isolated close/release frames",()=>{
   const pinch=new SpatialPinch();

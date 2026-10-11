@@ -12,6 +12,9 @@ interface WorkspaceProps {
   mode: Exclude<LessonMode, "document">;
   room: PrototypeRoom;
   notify(message: string): void;
+  tool: import("./stageInkGeometry").InkTool;
+  color: string;
+  onToolChange(tool: import("./stageInkGeometry").InkTool): void;
 }
 
 const browserRuntimes = [
@@ -222,13 +225,13 @@ function SystemsLab({ room, notify }: { room: PrototypeRoom; notify(message: str
   </section>;
 }
 
-export function LiveLabWorkspace({ mode, room, notify }: WorkspaceProps) {
+export function LiveLabWorkspace({ mode, room, notify, tool, color, onToolChange }: WorkspaceProps) {
   if (process.env.NEXT_PUBLIC_AIRBOARD_LEGACY === "1") {
     if (mode === "code") return <CodeLab room={room} notify={notify}/>;
     if (mode === "logic") return <LogicLab room={room} notify={notify}/>;
     return <SystemsLab room={room} notify={notify}/>;
   }
-  return <UnifiedLiveStage room={room} notify={notify}/>;
+  return <UnifiedLiveStage room={room} notify={notify} tool={tool} color={color} onToolChange={onToolChange}/>;
 }
 
 export function ClassroomControls({ room, notify }: { room: PrototypeRoom; notify(message: string): void }) {

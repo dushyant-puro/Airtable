@@ -22,9 +22,8 @@ function geometry(p:Props) {
   } else if(p.subject==="coding") {
     const values=(p.output.match(/-?\d+(?:\.\d+)?/g)??[]).slice(0,10).map(Number);
     const max=Math.max(1,...values.map(Math.abs));
-    values.forEach((n,i)=>{const h=.15+Math.abs(n)/max*.7,x=(i-(values.length-1)/2)*.3;box(x,.65-h/2,.1,.18,h,.24,i%2?gold:cyan);labels.push({x,y:.82,z:.1,text:String(n)});});
+    values.forEach((n,i)=>{const h=.15+Math.abs(n)/max*.7,x=(i-(values.length-1)/2)*.55;box(x,.65-h/2,.1,.3,h,.24,i%2?gold:cyan);labels.push({x,y:.82,z:.1,text:String(n)});});
     if(!values.length)labels.push({x:0,y:.85,z:0,text:p.output.slice(0,65)});
-    labels.push({x:0,y:-1.3,z:0,text:"SOURCE → EXECUTION → LIVE OUTPUT"});
   } else if(p.subject==="os") {
     const state=schedule(p.tick);
     box(0,-.7,0,1,.45,.7,gold);
@@ -42,7 +41,7 @@ function geometry(p:Props) {
 export function SubjectHologram(props:Props) {
   const canvasRef=useRef<HTMLCanvasElement>(null),state=useRef(props),shape=useRef<{dots:Dot[];labels:Label[]}>({dots:[],labels:[]});
   useEffect(()=>{state.current=props;},[props]);
-  useEffect(()=>{shape.current=geometry(props);},[props.subject,props.formula,props.code,props.output,props.tick,props.a,props.b,props.operation]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(()=>{shape.current=geometry(props);},[props.subject,props.formula,props.output,props.tick,props.a,props.b,props.operation]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(()=>{
     const canvas=canvasRef.current,ctx=canvas?.getContext("2d");if(!canvas||!ctx)return;
     let frame=0,previous=0;
@@ -50,17 +49,13 @@ export function SubjectHologram(props:Props) {
       const {width:w,height:h}=canvas.getBoundingClientRect(),dpr=Math.min(devicePixelRatio,1.5);if(!w||!h)return;
       if(canvas.width!==Math.round(w*dpr)||canvas.height!==Math.round(h*dpr)){canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);}
       ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
-      const p=state.current,angle=p.rotation*.45,c=Math.cos(angle),s=Math.sin(angle),unit=Math.min(w/4.4,h/3.3)*p.zoom;
-      const project=(x:number,y:number,z:number)=>{const rx=x*c+z*s,rz=-x*s+z*c,k=5/(5+rz);return {x:w/2+rx*unit*k,y:h*.47+(y-rz*.18)*unit*k,k};};
+      const p=state.current,angle=p.rotation*.45,c=Math.cos(angle),s=Math.sin(angle),unit=(p.subject==="coding"?Math.min(w/6,h/1.2):Math.min(w/4.4,h/3.3))*p.zoom;
+      const project=(x:number,y:number,z:number)=>{const rx=x*c+z*s,rz=-x*s+z*c,k=5/(5+rz);return {x:w/2+rx*unit*k,y:h*(p.subject==="coding"?.18:.47)+(y-rz*.18)*unit*k,k};};
       ctx.globalCompositeOperation="lighter";
       for(const dot of shape.current.dots){const v=project(dot.x,dot.y-dot.layer*p.explode/230,dot.z);ctx.globalAlpha=.55+.22*Math.sin(time/650+dot.x*2);ctx.fillStyle=dot.color;ctx.fillRect(v.x,v.y,1.8*v.k,1.8*v.k);}
       // A travelling probe shows the actual function's current sample.
       if(p.subject==="maths"){const samples=shape.current.dots;if(samples.length){const dot=samples[Math.floor(time/18)%samples.length],v=project(dot.x,dot.y,dot.z);ctx.globalAlpha=1;ctx.fillStyle=gold;ctx.shadowColor=gold;ctx.shadowBlur=16;ctx.beginPath();ctx.arc(v.x,v.y,4,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;}}
       ctx.globalAlpha=1;ctx.globalCompositeOperation="source-over";
-      if(p.subject==="coding"){
-        ctx.textAlign="left";ctx.font=`600 ${Math.max(13,unit*.115)}px Consolas, monospace`;ctx.shadowBlur=10;ctx.shadowColor=cyan;
-        p.code.split("\n").slice(0,7).forEach((line,i)=>{const v=project(-1.75,-1.02+i*.17,0);ctx.fillStyle=i===0?gold:ice;ctx.fillText(line.slice(0,58),v.x,v.y,unit*3.5);});ctx.shadowBlur=0;
-      }
       ctx.textAlign="center";ctx.font="600 12px Segoe UI";
       for(const label of shape.current.labels){const v=project(label.x,label.y,label.z),width=Math.min(w-24,ctx.measureText(label.text).width),x=Math.max(width/2+10,Math.min(w-width/2-10,v.x)),y=Math.max(20,Math.min(h-12,v.y));ctx.fillStyle="#03151edb";ctx.fillRect(x-width/2-7,y-14,width+14,22);ctx.fillStyle=ice;ctx.fillText(label.text,x,y,w-24);}
     };frame=requestAnimationFrame(render);return()=>cancelAnimationFrame(frame);

@@ -277,6 +277,49 @@ html,body{background:#eef1f4}.air-app.light-theme{color:#1c232b;background:linea
 .learn-gestures-dialog button{border:1px solid #b6cddd;border-radius:8px;background:#fff;color:#225b7c;padding:8px 12px;cursor:pointer;font-size:13px;min-height:34px}
 .learn-gestures-dialog header button{font-size:22px;padding:2px 11px}.gesture-guide-intro{font-size:14px;line-height:1.6;color:#536879;max-width:700px}
 .guide-camera-state{padding:10px 12px;border:1px solid #c9dfeb;border-radius:9px;background:#eaf5fb;color:#306a8d;font-size:12px}
+.stage-ink-layer{position:absolute;inset:0;z-index:23;pointer-events:none}
+.stage-ink-vectors{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;filter:drop-shadow(0 1px 2px #000b) drop-shadow(0 0 2px #d8faff55)}
+.stage-ink-capture{position:absolute;inset:0;pointer-events:auto;touch-action:none;cursor:crosshair}
+.stage-ink-object{position:absolute;pointer-events:auto;touch-action:none;cursor:grab;outline:1px dashed #86ebff55;outline-offset:6px;border-radius:5px}
+.stage-ink-object:hover,.stage-ink-object:focus-within{outline-color:#b9faff}
+.stage-ink-move{position:absolute;left:-6px;top:-34px;min-height:25px;padding:4px 8px;border:1px solid #90eaff66;border-radius:7px;background:#082939e8;color:#d9fcff;font:600 11px "Segoe UI",sans-serif;white-space:nowrap;cursor:grab;touch-action:none}
+.stage-ink-move:focus-visible{outline:2px solid #c3faff;outline-offset:2px}
+.stage-ink-hint{position:absolute;left:12px;bottom:12px;padding:6px 10px;border:1px solid #89eaff33;border-radius:7px;background:#07222cd9;color:#c4ebf5;font-size:11px;pointer-events:none}
+.object-dock .unified-ink>.object-dock-action{display:none}
+.unified-stage:has(.stage-ink-layer[data-writing="true"]) .movable-visual,.unified-stage:has(.stage-ink-layer[data-writing="true"]) .floating-code,.unified-stage:has(.stage-ink-layer[data-writing="true"]) .floating-math{opacity:.8}
+.coding-gesture-status{bottom:46px}
+
+/* Resizing changes the interaction frame, not just the particles inside it. */
+.unified-stage>.movable-visual{border-radius:12px;container-type:inline-size}
+.unified-stage>.movable-visual>.visual-manipulation{left:8px;right:82px;width:auto;gap:6px;padding:4px 6px;white-space:nowrap}
+.unified-stage>.movable-visual>.object-dock-action{left:auto;right:8px}
+.visual-frame-controls{display:flex;align-items:center;gap:3px}
+.visual-frame-controls output{font-size:10px;min-width:30px}
+.visual-frame-controls button{width:24px;height:24px}
+.visual-resize-grip{position:absolute;right:0;bottom:0;z-index:12;width:28px;height:28px;border:1px solid #9ff4ff88;border-radius:8px 0 12px 0;background:#0b2d3dd9;color:#c3faff;font-size:18px;cursor:nwse-resize;touch-action:none}
+.visual-resize-grip:focus-visible{outline:2px solid #c1fbff;outline-offset:2px}
+.inline-holographic-code{position:absolute;z-index:7;left:10px;right:10px;top:48px;bottom:43%;display:flex;flex-direction:column;gap:5px;min-height:65px}
+.inline-code-actions{display:flex;align-items:center;gap:5px;flex:none}
+.inline-code-actions select,.inline-code-actions button{min-height:28px;border:1px solid #89eaff66;border-radius:7px;background:#082b3ce6;color:#cefbff;padding:4px 7px;font:600 12px "Segoe UI",sans-serif;touch-action:manipulation}
+.inline-code-actions select{min-width:0;flex:1}
+.inline-code-actions button:disabled{opacity:.5;cursor:not-allowed}
+.inline-holographic-code textarea{width:100%;min-height:32px;flex:1;padding:8px;border:1px solid #85efff33;border-radius:8px;background:linear-gradient(120deg,#03192399,#0a2f3a55);color:#d1feff;text-shadow:0 0 8px #4fe9ff99,0 2px 3px #000;caret-color:#ffe0a2;font:600 clamp(12px,2.1cqw,16px)/1.55 "Cascadia Code",Consolas,monospace;resize:none;outline:none;touch-action:auto}
+.inline-holographic-code textarea:focus-visible{border-color:#a5f5ff;box-shadow:0 0 0 2px #56e5ff22}
+.inline-code-result{position:absolute;top:calc(100% + 7px);left:0;right:0;max-height:34px;overflow:auto;padding:4px 6px;background:#06212dcc;border-radius:5px;color:#d9fcff;font:11px/1.4 Consolas,monospace;white-space:pre-wrap;touch-action:auto}
+.object-dock .movable-visual:has(.inline-holographic-code) canvas{height:100%!important;margin-top:0}
+.movable-visual:has(.inline-holographic-code) canvas,.object-dock .movable-visual:has(.inline-holographic-code) canvas{position:absolute;top:64%;left:0;width:100%;height:36%!important;margin-top:0}
+.activity-controls{margin-top:12px;border-top:1px solid #89eaff33;padding-top:10px}
+.activity-controls summary{cursor:pointer;font-size:13px;color:#d9f9ff}
+.activity-controls .holo-caption{position:static!important;display:block!important;padding:12px 0;margin-top:8px;background:transparent;box-shadow:none;border:0}
+.unified-stage>.pcb-world{transform:none;transition:none;overflow:hidden}
+.pcb-world .pcb-viewport{transform:scale(var(--pcb-zoom));transform-origin:center}
+.unified-stage>.pcb-world .pcb-toolbar{top:48px;height:auto;min-height:48px;flex-wrap:wrap}
+.unified-stage>.pcb-world .part-callout{right:8px;bottom:8px;max-width:calc(100% - 16px)}
+.unified-stage>.unified-ink{bottom:12px}
+.spatial-sidebar.object-dock{bottom:12px}
+.coding-gesture-status{bottom:12px}
+.floating-code{max-height:calc(100% - var(--card-top,10%) - 16px)}
+@container(max-width:360px){.visual-manipulation>span{font-size:10px}.visual-frame-controls output{display:none}.inline-code-actions select,.inline-code-actions button{font-size:11px;padding:3px 5px}.inline-holographic-code{left:8px;right:8px}.inline-holographic-code textarea{padding:5px;font-size:12px}}
 .gesture-lesson-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;list-style:none;padding:0;margin:18px 0}
 .gesture-lesson-grid li{padding:15px;border:1px solid #d5e1e9;border-radius:11px;background:#fff}.gesture-lesson-grid b{display:block;margin-bottom:8px;font:11px ui-monospace,monospace;color:#2480aa}.gesture-lesson-grid strong{display:block;font-size:14px;line-height:1.5}.gesture-lesson-grid p{margin:7px 0 0;color:#5b6d7b;font-size:13px;line-height:1.6}
 .gesture-do-avoid{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:14px;border-radius:11px;background:#eaf0f5}.gesture-do-avoid h3{font-size:14px;margin:0 0 6px}.gesture-do-avoid p{font-size:13px;line-height:1.6;margin:0;color:#566c7c}

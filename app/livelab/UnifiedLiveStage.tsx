@@ -7,9 +7,11 @@ import type { CSSProperties, KeyboardEvent, ReactElement, ReactNode, RefObject, 
 import type { PrototypeRoom } from "./usePrototypeRoom";
 import { HolographicModel } from "./HolographicModel";
 import { SubjectHologram } from "./SubjectHologram";
+import { StageInk } from "./StageInk";
+import type { InkTool } from "./stageInkGeometry";
 import { formulaSamples, compileFormula, alu, schedule } from "./lessonMath";
 import type { SpatialSubject } from "./types";
-import { smoothZoom, translatePose, type SpatialPose, clamp } from "./spatialControls";
+import { smoothZoom, translatePose, resizeVisualFrame, type SpatialPose, clamp } from "./spatialControls";
 import { compilerFor, validRuntimes, codeSamples, stageLanguages, type StageLanguage, type CompilerRuntime } from "./codeRuntimes";
 
 type Position = { x: number; y: number };
@@ -44,12 +46,20 @@ function useDrag(initial: Position & {scale?:number}, id: string, onCommit?: (po
   const [size,setSize]=useState(initial.scale??1);
   const commitRef=useRef(onCommit),positionRef=useRef(position),sizeRef=useRef(size);
   const origin=useRef<{x:number;y:number;pose:SpatialPose}|null>(null);
+  const resizeOrigin=useRef<{x:number;y:number;scale:number;width:number;height:number}|null>(null);
   useEffect(()=>{commitRef.current=onCommit;},[onCommit]);
   useEffect(()=>{const next={x:initial.x,y:initial.y};positionRef.current=next;sizeRef.current=initial.scale??1;setPosition(next);setSize(initial.scale??1);},[initial.x,initial.y,initial.scale]);
   const applyPosition=(next:Position)=>{positionRef.current=next;setPosition(next);};
+  const resize=(value:number,commit=true)=>{
+    if(!enabled)return;
+    const next=id==="model"?resizeVisualFrame({...positionRef.current,scale:sizeRef.current},value):{...positionRef.current,scale:clamp(value,.6,1.8)};
+    sizeRef.current=next.scale;setSize(next.scale);applyPosition(next);
+    if(commit)commitRef.current?.(next);
+  };
+  const park=()=>{if(!enabled||id!=="model")return;const next=resizeVisualFrame({x:100,y:100,scale:sizeRef.current},sizeRef.current);applyPosition(next);commitRef.current?.(next);};
   const moveBy=(panel:HTMLElement,dx:number,dy:number,pose:SpatialPose)=>{
     const rect=panel.closest(".unified-stage")?.getBoundingClientRect();if(!rect)return;
-    applyPosition(translatePose(pose,dx,dy,rect,{width:panel.offsetWidth,height:panel.offsetHeight}));
+    applyPosition(translatePose(pose,dx,dy,rect,{width:panel.offsetWidth/(id==="model"?pose.scale:1),height:panel.offsetHeight/(id==="model"?pose.scale:1)}));
   };
   const end=()=>{if(origin.current)commitRef.current?.({...positionRef.current,scale:sizeRef.current});origin.current=null;};
   useEffect(()=>{
@@ -63,7 +73,7 @@ function useDrag(initial: Position & {scale?:number}, id: string, onCommit?: (po
       if(panel.classList.contains("docked-object"))return;
       if(d.phase==="start"&&d.target===id){origin.current={x:d.x,y:d.y,pose:{...positionRef.current,scale:sizeRef.current}};panel.classList.add("air-grabbed");}
       if(d.phase==="move"&&origin.current&&d.target===id)moveBy(panel,d.x-origin.current.x,d.y-origin.current.y,origin.current.pose);
-      if(d.phase==="zoom"&&d.target===id&&id!=="model"){if(span===null){span=d.distance;baseSize=sizeRef.current;}const next=smoothZoom(sizeRef.current,baseSize,d.distance,span??d.distance,.6,1.8);sizeRef.current=next;setSize(next);}
+      if(d.phase==="zoom"&&d.target===id){if(span===null){span=d.distance;baseSize=sizeRef.current;}resize(smoothZoom(sizeRef.current,baseSize,d.distance,span??d.distance,id==="model"?.4:.6,id==="model"?1.2:1.8),false);}
     };
     window.addEventListener("air-spatial",handle);return()=>{window.removeEventListener("air-spatial",handle);origin.current=null;};
   },[id,enabled]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -80,7 +90,14 @@ function useDrag(initial: Position & {scale?:number}, id: string, onCommit?: (po
     const delta:Record<string,[number,number]>={ArrowLeft:[-20,0],ArrowRight:[20,0],ArrowUp:[0,-20],ArrowDown:[0,20]};
     if(!delta[event.key])return;event.preventDefault();moveBy(event.currentTarget,...delta[event.key],{...positionRef.current,scale:sizeRef.current});commitRef.current?.({...positionRef.current,scale:sizeRef.current});
   };
-  return {position,size,handlers:{onPointerDown:start,onPointerMove:move,onPointerUp:end,onPointerCancel:end,onKeyDown:key}};
+  const resizeHandlers={
+    onPointerDown:(event:ReactPointerEvent<HTMLButtonElement>)=>{if(!enabled||event.button!==0)return;event.stopPropagation();event.preventDefault();const stage=event.currentTarget.closest(".unified-stage")?.getBoundingClientRect();if(!stage)return;resizeOrigin.current={x:event.clientX,y:event.clientY,scale:sizeRef.current,width:stage.width*.58,height:stage.height*.8};event.currentTarget.setPointerCapture(event.pointerId);},
+    onPointerMove:(event:ReactPointerEvent<HTMLButtonElement>)=>{const from=resizeOrigin.current;if(!from)return;event.stopPropagation();resize(from.scale+((event.clientX-from.x)/from.width+(event.clientY-from.y)/from.height)/2,false);},
+    onPointerUp:()=>{if(resizeOrigin.current)commitRef.current?.({...positionRef.current,scale:sizeRef.current});resizeOrigin.current=null;},
+    onPointerCancel:()=>{if(resizeOrigin.current)commitRef.current?.({...positionRef.current,scale:sizeRef.current});resizeOrigin.current=null;},
+    onKeyDown:(event:KeyboardEvent<HTMLButtonElement>)=>{if(event.key==="ArrowLeft"||event.key==="ArrowDown"||event.key==="ArrowRight"||event.key==="ArrowUp"){event.preventDefault();event.stopPropagation();resize(sizeRef.current+(["ArrowRight","ArrowUp"].includes(event.key)?.05:-.05));}}
+  };
+  return {position,size,resize,park,resizeHandlers,handlers:{onPointerDown:start,onPointerMove:move,onPointerUp:end,onPointerCancel:end,onKeyDown:key}};
 }
 
 function InkComposer({ onDock, draft, className = "unified-ink", children }: { onDock(image: string): void; draft: RefObject<string | null>; className?: string; children?: ReactNode }) {
@@ -133,7 +150,7 @@ function formulaPath(formula:string) {
   } catch { return ""; }
 }
 
-export function UnifiedLiveStage({ room, notify }: { room: PrototypeRoom; notify(message:string):void }) {
+export function UnifiedLiveStage({ room, notify, tool, color, onToolChange }: { room: PrototypeRoom; notify(message:string):void; tool: InkTool; color: string; onToolChange(tool: InkTool): void }) {
   const updateRoom=room.update;
   const [docked, setDocked] = useState<DockId[]>([]);
   const [dockTarget, setDockTarget] = useState<HTMLDivElement | null>(null);
@@ -164,13 +181,13 @@ export function UnifiedLiveStage({ room, notify }: { room: PrototypeRoom; notify
   const importFunction=async(file:File)=>{if(!room.canEdit)return;if(file.size>32_000){setMathError("Choose a function file smaller than 32 KB.");return;}try{const text=await file.text();const candidate=file.name.toLowerCase().endsWith(".json")?JSON.parse(text).formula:text.trim();if(typeof candidate!=="string")throw new Error('JSON must contain a "formula" string.');visualize(candidate);}catch(error){setMathError(error instanceof Error?error.message:"Unable to read function file.");}};
   const codeDrag=useDrag(room.state.stageCodePose,"code",pose=>updateRoom({stageCodePose:pose}),room.canEdit),mathDrag=useDrag(room.state.stageMathPose,"math",pose=>updateRoom({stageMathPose:pose}),room.canEdit),assetDrag=useDrag({x:35,y:30},"asset",undefined,room.canEdit);
   const modelDrag=useDrag(room.state.stageModelPose??{x:14,y:10,scale:1},"model",pose=>updateRoom({stageModelPose:pose}),room.canEdit);
-  const modelStyle={left:`${modelDrag.position.x}%`,top:`${modelDrag.position.y}%`} as CSSProperties;
+  const modelStyle={left:`${modelDrag.position.x}%`,top:`${modelDrag.position.y}%`,width:`${58*modelDrag.size}%`,height:`${80*modelDrag.size}%`} as CSSProperties;
   const [sidebar,setSidebar]=useState(false),[model,setModel]=useState<"semiconductor"|"pcb">(room.state.stageModel),[rotation,setRotation]=useState(room.state.stageRotation),[conducting,setConducting]=useState(room.state.stageGateOn),[asset,setAsset]=useState<string|null>(null);
   const assetInput=useRef<HTMLInputElement>(null),zoomRef=useRef(zoom);
   const changeZoom=(next:number)=>{if(!room.canEdit)return;const value=clamp(next,.6,2.4);zoomRef.current=value;setZoom(value);updateRoom({stageZoom:value});};
   const resetVisual=()=>{if(!room.canEdit)return;setZoom(1);zoomRef.current=1;setRotation(.1);updateRoom({stageZoom:1,stageRotation:.1,stageModelPose:{x:14,y:10,scale:1}});};
-  const zoomControls=<div className="visual-zoom-controls" role="group" aria-label="Visualization zoom"><button aria-label="Zoom visual out" disabled={!room.canEdit||zoom<=.6} onClick={()=>changeZoom(zoom/1.12)}>−</button><output aria-live="polite">{Math.round(zoom*100)}%</output><button aria-label="Zoom visual in" disabled={!room.canEdit||zoom>=2.4} onClick={()=>changeZoom(zoom*1.12)}>+</button><button aria-label="Reset visual position and zoom" disabled={!room.canEdit} onClick={resetVisual}>↺</button></div>;
-  const visualControls=<div className="visual-manipulation" data-air-grab="model"><span>⋮⋮ Move visual</span>{docked.includes("model")&&zoomControls}</div>;
+  const frameControls=<div className="visual-frame-controls" role="group" aria-label="Visualization frame size"><button aria-label="Shrink visualization frame" disabled={!room.canEdit||modelDrag.size<=.4} onClick={()=>modelDrag.resize(modelDrag.size-.1)}>−</button><output>{Math.round(modelDrag.size*100)}%</output><button aria-label="Enlarge visualization frame" disabled={!room.canEdit||modelDrag.size>=1.2} onClick={()=>modelDrag.resize(modelDrag.size+.1)}>+</button></div>;
+  const visualControls=<><div className="visual-manipulation" data-air-grab="model"><span title="Drag this header, or pinch and move">⋮⋮ Move</span>{!docked.includes("model")&&frameControls}</div>{!docked.includes("model")&&<button className="visual-resize-grip" aria-label="Resize visualization frame" title="Drag to resize · arrow keys adjust size" disabled={!room.canEdit} {...modelDrag.resizeHandlers}>◢</button>}</>;
   useEffect(()=>{setDocked(current=>current.filter(id=>(id!=="asset"||!!asset)&&(id!=="notes"||notes.length>0)));},[asset,notes.length]);
   const rotationRef=useRef(rotation);
   useEffect(()=>{rotationRef.current=rotation;},[rotation]);
@@ -179,17 +196,14 @@ export function UnifiedLiveStage({ room, notify }: { room: PrototypeRoom; notify
   const gateToggle=()=>{if(!room.canEdit)return;setConducting(!conducting);updateRoom({stageGateOn:!conducting});};
   useEffect(()=>{zoomRef.current=zoom;},[zoom]);
   useEffect(()=>{
-    let span:number|null=null,baseZoom=1;
     const handle=(event:Event)=>{const d=(event as CustomEvent).detail;
       if(d.phase==="sidebar")setSidebar(value=>!value);
-      if(d.phase==="zoom"&&d.target==="model"&&room.canEdit){if(span===null){span=d.distance;baseZoom=zoomRef.current;}const next=smoothZoom(zoomRef.current,baseZoom,d.distance,span??d.distance);zoomRef.current=next;setZoom(next);}
       if(d.phase==="rotate"&&room.canEdit)setRotation(value=>value+clamp(d.delta,-.08,.08));
       if(d.phase==="orbit-end")updateRoom({stageRotation:rotationRef.current});
-      if(d.phase==="end"&&span!==null){span=null;updateRoom({stageZoom:zoomRef.current});}
     };window.addEventListener("air-spatial",handle);return()=>window.removeEventListener("air-spatial",handle);
   },[updateRoom,room.canEdit]);
   useEffect(()=>{const handle=(event:Event)=>{const target=(event as CustomEvent).detail;if(target.phase!=="dock")return;if(["code","math","model","ink","notes","asset"].includes(target.target)){const id=target.target as DockId;setDocked(current=>current.includes(id)?current:[...current,id]);setSidebar(true);notify(`${dockLabels[id]} moved into Show tools`);}};window.addEventListener("air-spatial",handle);return()=>window.removeEventListener("air-spatial",handle);},[notify]);
-  useEffect(()=>{const wheel=(event:WheelEvent)=>{const object=(event.target as HTMLElement)?.closest<HTMLElement>('[data-spatial-id="model"]');if(!room.canEdit||!object||(object.classList.contains("docked-object")&&!event.ctrlKey)||(event.target as HTMLElement).closest("input,button,select"))return;event.preventDefault();const next=clamp(zoomRef.current*Math.exp(-clamp(event.deltaY,-120,120)*.002),.6,2.4);zoomRef.current=next;setZoom(next);updateRoom({stageZoom:next});};window.addEventListener("wheel",wheel,{passive:false});return()=>window.removeEventListener("wheel",wheel);},[room.canEdit,updateRoom]);
+  useEffect(()=>{const wheel=(event:WheelEvent)=>{const object=(event.target as HTMLElement)?.closest<HTMLElement>('[data-spatial-id="model"]');if(!room.canEdit||!object||object.classList.contains("docked-object")||(event.target as HTMLElement).closest("input,textarea,button,select,summary"))return;event.preventDefault();modelDrag.resize(modelDrag.size*Math.exp(-clamp(event.deltaY,-120,120)*.002));};window.addEventListener("wheel",wheel,{passive:false});return()=>window.removeEventListener("wheel",wheel);},[room.canEdit,modelDrag]);
   useEffect(()=>{return()=>{if(asset)URL.revokeObjectURL(asset);};},[asset]);
   const selectedPart=pcbParts.find(part=>part.id===selected)??pcbParts[0],path=useMemo(()=>formulaPath(wave),[wave]);
   useEffect(()=>{setCode(room.state.stageCode);setOutput(room.state.stageCodeOutput);},[room.state.stageCode,room.state.stageCodeOutput]);
@@ -200,13 +214,17 @@ export function UnifiedLiveStage({ room, notify }: { room: PrototypeRoom; notify
   const canRun=language==="javascript"||!!runtime;
   const run=async()=>{if(!room.canEdit||running||!canRun)return;setRunning(true);try{let result:string;if(language==="javascript")result=await executeJavaScript(code);else{const response=await fetch("/api/execute",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sourceCode:code,languageId:runtime!.id,stdin}),signal:AbortSignal.timeout(30000)});const payload=await response.json();if(!response.ok||payload.error||payload.success===false)throw new Error(payload.error??payload.output??"Compiler failed. Your source is preserved.");result=payload.output??"Program completed";}setOutput(result);setSubject("coding");updateRoom({stageCode:code,stageCodeOutput:result,stageSubject:"coding"});notify("Output shared · numeric values become particle columns");}catch(error){const message=error instanceof Error?error.message:"Execution failed; retry.";setOutput(message);updateRoom({stageCodeOutput:message});notify("Execution failed · source preserved");}finally{setRunning(false);}};
   const togglePart=()=>{if(!room.canEdit)return;const next=removed.includes(selected)?removed.filter(id=>id!==selected):[...removed,selected];setRemoved(next);room.update({stageRemovedParts:next});};
-  const visualTitle=subject==="semiconductor"?(model==="pcb"?"Teaching PCB":"MOSFET"):subjects.find(item=>item.id===subject)?.title.slice(2);
-  const visualDescription=subject==="semiconductor"?(model==="pcb"?`Inspecting ${selectedPart.label} · ${selectedPart.detail}`:"Field-effect transistor · layers & electron flow"):subject==="maths"?`f(x) = ${wave}`:subject==="coding"?"Explicit execution · neon source & particle output":subject==="os"?"Round-robin scheduling · quantum 1":"One-bit ALU · registers & datapath";
-  const visualDetails=subject!=="semiconductor"?<div className="holo-caption"><span>LIVE SUBJECT / {subject.toUpperCase()}</span><strong>{subjects.find(item=>item.id===subject)?.title.slice(2)}</strong>{subject==="maths"&&<p>A sampled function in space · depth is illustrative. Turn your wrist to orbit; spread your palms to magnify.</p>}{subject==="coding"&&<p>Type in the floating editor. Run explicitly to project numeric results as particle columns.</p>}{subject==="os"&&<><p>Round-robin · quantum 1 · jobs 5, 3, 4 ticks. Completed: {room.state.simulationStep}/12</p><div className="simulation-trace">{schedule(room.state.simulationStep).trace.map((job,i)=><i key={i}>P{job+1}</i>)}</div><button disabled={!room.canEdit||room.state.simulationStep>=12} onClick={()=>updateRoom({simulationStep:Math.min(12,room.state.simulationStep+1)})}>Advance CPU tick</button><button disabled={!room.canEdit} onClick={()=>updateRoom({simulationStep:0})}>Restart</button></>}{subject==="coa"&&<><p>One-bit datapath · registers feed an ALU. Explode to separate components.</p><div className="coa-controls"><button disabled={!room.canEdit} onClick={()=>updateRoom({logicA:room.state.logicA?0:1})}>A = {room.state.logicA}</button><button disabled={!room.canEdit} onClick={()=>updateRoom({logicB:room.state.logicB?0:1})}>B = {room.state.logicB}</button>{(["ADD","AND","OR","XOR"] as const).map(op=><button key={op} aria-pressed={room.state.logicOperation===op} disabled={!room.canEdit} onClick={()=>updateRoom({logicOperation:op})}>{op}</button>)}</div><p role="status">Result {alu(room.state.logicA,room.state.logicB,room.state.logicOperation).result} · carry {alu(room.state.logicA,room.state.logicB,room.state.logicOperation).carry}</p></>}</div>:<div className="holo-caption"><span>LIVE MODEL / 001</span><strong>MOSFET</strong><p>Field effect transistor · separate the layers and trace the electrons.</p><button disabled={!room.canEdit} onClick={gateToggle}>{conducting?"Gate ON · electrons flowing":"Gate OFF · channel closed"}</button></div>;
+  const visualDetails=subject!=="semiconductor"?<div className="holo-caption"><span>LIVE SUBJECT / {subject.toUpperCase()}</span><strong>{subjects.find(item=>item.id===subject)?.title.slice(2)}</strong>{subject==="maths"&&<p>A sampled function in space · depth is illustrative. Turn your wrist to orbit; spread your palms to magnify.</p>}{subject==="coding"&&<p>Type directly on the visualization. Run explicitly to project numeric results as particle columns.</p>}{subject==="os"&&<><p>Round-robin · quantum 1 · jobs 5, 3, 4 ticks. Completed: {room.state.simulationStep}/12</p><div className="simulation-trace">{schedule(room.state.simulationStep).trace.map((job,i)=><i key={i}>P{job+1}</i>)}</div><button disabled={!room.canEdit||room.state.simulationStep>=12} onClick={()=>updateRoom({simulationStep:Math.min(12,room.state.simulationStep+1)})}>Advance CPU tick</button><button disabled={!room.canEdit} onClick={()=>updateRoom({simulationStep:0})}>Restart</button></>}{subject==="coa"&&<><p>One-bit datapath · registers feed an ALU. Explode to separate components.</p><div className="coa-controls"><button disabled={!room.canEdit} onClick={()=>updateRoom({logicA:room.state.logicA?0:1})}>A = {room.state.logicA}</button><button disabled={!room.canEdit} onClick={()=>updateRoom({logicB:room.state.logicB?0:1})}>B = {room.state.logicB}</button>{(["ADD","AND","OR","XOR"] as const).map(op=><button key={op} aria-pressed={room.state.logicOperation===op} disabled={!room.canEdit} onClick={()=>updateRoom({logicOperation:op})}>{op}</button>)}</div><p role="status">Result {alu(room.state.logicA,room.state.logicB,room.state.logicOperation).result} · carry {alu(room.state.logicA,room.state.logicB,room.state.logicOperation).carry}</p></>}</div>:<div className="holo-caption"><span>LIVE MODEL / 001</span><strong>MOSFET</strong><p>Field effect transistor · separate the layers and trace the electrons.</p><button disabled={!room.canEdit} onClick={gateToggle}>{conducting?"Gate ON · electrons flowing":"Gate OFF · channel closed"}</button></div>;
   const resetSpace=()=>{if(!room.canEdit)return;resetVisual();setExplode(36);setRemoved([]);updateRoom({stageExplode:36,stageRemovedParts:[]});};
+  useEffect(()=>{if(subject==="coding")setDocked(current=>current.includes("code")?current:[...current,"code"]);},[subject]);
+  const inlineCode=subject==="coding"?<section className="inline-holographic-code" aria-label="Code on visualization">
+    <div className="inline-code-actions"><select aria-label="Visualization code language" value={language} disabled={!room.canEdit||running} onChange={event=>selectLanguage(event.target.value as StageLanguage)}>{stageLanguages.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select><button data-air-action data-air-confirm disabled={!room.canEdit||running||!canRun} title="Click or Ctrl/⌘ + Enter · air: hold pinch for 0.9 seconds" onClick={run}>{running?"Running…":"▶ Run"}</button><button aria-label="Open full code editor in Show tools" onClick={()=>{setDocked(current=>current.includes("code")?current:[...current,"code"]);setSidebar(true);}}>⋯</button></div>
+    <textarea aria-label="Code directly on visualization" value={code} readOnly={!room.canEdit||running} spellCheck={false} onChange={event=>setCode(event.target.value)} onBlur={()=>{if(room.canEdit)updateRoom({stageCode:code});}} onKeyDown={event=>{if((event.ctrlKey||event.metaKey)&&event.key==="Enter"){event.preventDefault();void run();}}}/>
+    <output className="inline-code-result" aria-live="polite">{!canRun?"Editing only · connect compiler in Show tools":output}</output>
+  </section>:null;
   return <section className="unified-stage" style={{"--visual-brightness":brightness} as CSSProperties}>
     <div className="unified-hud"><div><i/><span>HOLOSPACE / LIVE CLASSROOM</span></div><p>Pinch + move visual · two palms to zoom · V hold to dock</p></div>
-    <div className="spatial-stage-actions"><button className="spatial-tools-toggle" aria-controls="classroom-tools" aria-expanded={sidebar} onClick={()=>setSidebar(!sidebar)}>☷ <span>{sidebar?"Hide tools":"Show tools"}{docked.length?` (${docked.length})`:""}</span></button><button onClick={()=>window.dispatchEvent(new Event("air-camera-start"))}>◎ Enable hand control</button><button onClick={()=>{if(docked.length){setDocked([]);}else{setDocked(["code","math","model","ink",...(notes.length?["notes" as const]:[]),...(asset?["asset" as const]:[])]);setSidebar(true);}}}>{docked.length?"↗ Float all":"⇥ Dock all to tools"}</button></div>
+    <div className="spatial-stage-actions"><button className="spatial-tools-toggle" aria-controls="classroom-tools" aria-expanded={sidebar} onClick={()=>setSidebar(!sidebar)}>☷ <span>{sidebar?"Hide tools":"Show tools"}{docked.length?` (${docked.length})`:""}</span></button><button onClick={()=>window.dispatchEvent(new Event("air-camera-start"))}>◎ Enable hand control</button><button data-air-action disabled={!room.canEdit} onClick={()=>onToolChange(tool==="pointer"?"pen":"pointer")}>{tool==="pointer"?"✎ Write anywhere":"↗ Move ink / interact"}</button><button onClick={()=>{if(docked.length){setDocked([]);}else{setDocked(["code","math","model","ink",...(notes.length?["notes" as const]:[]),...(asset?["asset" as const]:[])]);setSidebar(true);}}}>{docked.length?"↗ Float all":"⇥ Dock all to tools"}</button></div>
     <aside id="classroom-tools" className="spatial-sidebar object-dock" aria-label="Spatial tools and docked objects" hidden={!sidebar}>
       <header><span>SPATIAL INSTRUMENTS</span><strong>Shape the lesson.</strong><button onClick={()=>setSidebar(false)} aria-label="Close spatial tools">×</button></header>
       <p>Fist hold: show / hide tools. Point a V sign at an object and hold for one second to dock it here.</p>
@@ -214,25 +232,29 @@ export function UnifiedLiveStage({ room, notify }: { room: PrototypeRoom; notify
         <div className="subject-picker">{subjects.map(item=><button key={item.id} disabled={!room.canEdit} onClick={()=>chooseSubject(item.id)} aria-pressed={subject===item.id}><strong>{item.title}</strong><small>{item.detail}</small></button>)}</div>
         {subject==="semiconductor"&&<><button disabled={!room.canEdit} onClick={()=>chooseModel(model==="pcb"?"semiconductor":"pcb")}>{model==="pcb"?"Show MOSFET":"Show exploded PCB"}</button><button disabled={!room.canEdit} onClick={gateToggle}>{conducting?"● Current flowing":"○ Gate off"} · toggle gate</button></>}
         <label>EXPLODE LAYERS <input disabled={!room.canEdit} aria-label="Hologram explosion" type="range" min="0" max="100" value={explode} onChange={e=>{setExplode(+e.target.value);updateRoom({stageExplode:+e.target.value});}}/></label>
-        <label>MODEL SCALE · {Math.round(zoom*100)}% <input disabled={!room.canEdit} aria-label="Hologram scale" type="range" min=".6" max="2.4" step=".05" value={zoom} onChange={e=>changeZoom(+e.target.value)}/></label>
+        <label>FRAME SIZE · {Math.round(modelDrag.size*100)}% <input disabled={!room.canEdit} aria-label="Visualization frame size" type="range" min=".4" max="1.2" step=".05" value={modelDrag.size} onChange={e=>modelDrag.resize(+e.target.value)}/></label>
+        <button disabled={!room.canEdit||docked.includes("model")} onClick={modelDrag.park}>Park visual in bottom-right corner</button>
+        <label>CONTENT ZOOM · {Math.round(zoom*100)}% <input disabled={!room.canEdit} aria-label="Hologram scale" type="range" min=".6" max="2.4" step=".05" value={zoom} onChange={e=>changeZoom(+e.target.value)}/></label>
         <label>BRIGHTNESS · {Math.round(brightness*100)}% <input disabled={!room.canEdit} aria-label="Visual brightness" type="range" min=".7" max="1.8" step=".05" value={brightness} onChange={e=>{setBrightness(+e.target.value);updateRoom({stageBrightness:+e.target.value});}}/></label>
         <label>ORBIT <input disabled={!room.canEdit} aria-label="Hologram rotation" type="range" min="-3.14" max="3.14" step=".02" value={rotation} onChange={e=>{setRotation(+e.target.value);updateRoom({stageRotation:+e.target.value});}}/></label>
-        <button disabled={!room.canEdit} onClick={resetVisual}>Reset visual position &amp; zoom</button><button onClick={()=>assetInput.current?.click()}>＋ Add floating image</button><button disabled={!room.canEdit} onClick={()=>functionInput.current?.click()}>∿ Import maths function</button>
+        <button disabled={!room.canEdit} onClick={resetSpace}>Reset visual position &amp; zoom</button><button onClick={()=>assetInput.current?.click()}>＋ Add floating image</button><button disabled={!room.canEdit} onClick={()=>functionInput.current?.click()}>∿ Import maths function</button>
       </details>
+      <details className="activity-controls"><summary>Activity controls &amp; explanation</summary>{visualDetails}</details>
       <div className="object-dock-summary"><span>{docked.length?`${docked.length} objects in tools`:"No docked objects"}</span>{docked.length>0&&<button onClick={()=>setDocked([])}>Float all</button>}</div>
       <div ref={setDockTarget} className="object-dock-content"/>
       {!docked.length&&<p className="object-dock-empty">Click ⇥ Tools on an object, or hold a V sign over it. Float returns it to its saved position.</p>}
-      <details className="spatial-gesture-guide"><summary>Gesture guide</summary><p>Fist hold → show / hide tools</p><p>V sign + one-second hold → dock focused object</p><p>Quick pinch on a visible button → activate</p><p>Pinch + move visual or header → move</p><p>Two open palms, hold briefly → zoom focused object</p><p>Open palm + turn wrist → orbit model</p><p>Mouse wheel over visual → zoom; arrow keys → move</p><p>Pinch on live ink → luminous marker</p></details>
+      <details className="spatial-gesture-guide"><summary>Gesture guide</summary><p>Fist hold → show / hide tools</p><p>V sign + one-second hold → dock focused object</p><p>Quick pinch on a visible button → activate</p><p>Pinch + move visual or header → move</p><p>Two open palms, hold briefly → resize focused frame</p><p>Open palm + turn wrist → orbit model</p><p>Mouse wheel over visual → resize frame; arrow keys → move</p><p>Pinch on live ink → luminous marker</p></details>
     </aside>
     <input ref={functionInput} type="file" accept=".txt,.json,text/plain,application/json" hidden onChange={e=>{const file=e.target.files?.[0];if(file)void importFunction(file);e.target.value="";}}/>
     {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- This labelled model supports arrow-key movement, not button activation. */}
-    {subject!=="semiconductor"&&<Dockable {...dockProps("model")}><div className="semiconductor-hologram subject-hologram movable-visual" data-spatial-id="model" style={modelStyle} role="group" aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown" tabIndex={0} aria-label="Move subject visualization" {...modelDrag.handlers}><SubjectHologram subject={subject} formula={wave} code={code} output={output} zoom={zoom} rotation={rotation} explode={explode} tick={room.state.simulationStep} a={room.state.logicA} b={room.state.logicB} operation={room.state.logicOperation}/>{docked.includes("model")&&visualDetails}</div></Dockable>}
+    {subject!=="semiconductor"&&<Dockable {...dockProps("model")}><div className="semiconductor-hologram subject-hologram movable-visual" data-spatial-id="model" style={modelStyle} role="group" aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown" tabIndex={0} aria-label="Move subject visualization" {...modelDrag.handlers}><SubjectHologram subject={subject} formula={wave} code={code} output={output} zoom={zoom} rotation={rotation} explode={explode} tick={room.state.simulationStep} a={room.state.logicA} b={room.state.logicB} operation={room.state.logicOperation}/>{inlineCode}{docked.includes("model")&&subject!=="coding"&&visualDetails}</div></Dockable>}
     <input ref={assetInput} type="file" accept="image/*" hidden onChange={e=>{const file=e.target.files?.[0];if(file?.type.startsWith("image/")){setAsset(URL.createObjectURL(file));notify("Image added · pinch its header to move, use two palms to scale");}e.target.value="";}}/>
     {asset&&<Dockable {...dockProps("asset")}><article data-spatial-id="asset" className="floating-asset glass-object" style={{left:`${assetDrag.position.x}%`,top:`${assetDrag.position.y}%`,transform:`scale(${assetDrag.size})`,transformOrigin:"top left"}} {...assetDrag.handlers}><header data-air-grab="asset"><strong>Lesson image</strong><button onClick={()=>setAsset(null)} aria-label="Remove lesson image">×</button></header><img src={asset} alt="Imported lesson reference"/></article></Dockable>}
     {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- This labelled model supports arrow-key movement, not button activation. */}
     {subject==="semiconductor"&&model==="semiconductor"&&<Dockable {...dockProps("model")}><div className="semiconductor-hologram movable-visual" data-spatial-id="model" style={modelStyle} role="group" aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown" tabIndex={0} aria-label="Move semiconductor visualization" {...modelDrag.handlers}><HolographicModel explode={explode} zoom={zoom} rotation={rotation} conducting={conducting}/>{docked.includes("model")&&visualDetails}</div></Dockable>}
     {notes.length > 0 && <Dockable {...dockProps("notes")}><div className="note-stack" data-spatial-id="notes">{notes.slice(-4).map((note,index)=><article key={note.slice(-30)+index} style={{transform:`translate(${index*8}px,${index*58}px)`}}><img src={note} alt={`Docked handwritten line ${index+1}`}/><button disabled={!room.canEdit} onClick={()=>{const next=notes.filter(item=>item!==note);setNotes(next);room.update({stageNotes:next});}}>×</button></article>)}</div></Dockable>}
-    <Dockable {...dockProps("ink")}><InkComposer className="unified-ink" draft={inkDraft} onDock={image=>{if(!room.canEdit)return;const next=[...notes,image].slice(-4);setNotes(next);room.update({stageNotes:next});notify("Handwritten line docked and shared to the upper-left");}}/></Dockable>
+    <StageInk room={room} tool={tool} color={color}/>
+    <Dockable id="ink" docked={true} target={dockTarget} onToggle={()=>notify("Use pen to write anywhere on the stage")}><InkComposer className="unified-ink" draft={inkDraft} onDock={image=>{if(!room.canEdit)return;const next=[...notes,image].slice(-4);setNotes(next);room.update({stageNotes:next});}}/></Dockable>
     {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- This labelled model supports arrow-key movement, not button activation. */}
     <Dockable {...dockProps("model")}><div data-spatial-id="model" className="pcb-world movable-visual" role="group" aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown" tabIndex={0} aria-label="Move PCB visualization" {...modelDrag.handlers} style={{...modelStyle,display:subject==="semiconductor"&&model==="pcb"?undefined:"none","--pcb-zoom":zoom,"--pcb-explode":`${explode}px`} as CSSProperties}>
       <div className="pcb-toolbar"><div><span>LIVE OBJECT · PCB</span><strong>AirBoard teaching board</strong></div><label>ZOOM <input type="range" min="0.65" max="1.8" step="0.05" value={zoom} disabled={!room.canEdit} onChange={event=>{const next=Number(event.target.value);setZoom(next);room.update({stageZoom:next});}}/></label><label>EXPLODE <input type="range" min="0" max="100" value={explode} disabled={!room.canEdit} onChange={event=>{const next=Number(event.target.value);setExplode(next);room.update({stageExplode:next});}}/></label></div>
@@ -252,18 +274,6 @@ export function UnifiedLiveStage({ room, notify }: { room: PrototypeRoom; notify
       <input value={formula} disabled={!room.canEdit} onChange={event=>setFormula(event.target.value)} onKeyDown={e=>{if(e.key==="Enter")visualize(formula);}} aria-label="Mathematical function"/><div className="math-presets"><button disabled={!room.canEdit} onClick={()=>visualize("sin(x) + 0.45*sin(3*x)")}>Fourier</button><button disabled={!room.canEdit} onClick={()=>visualize("exp(-x^2/4)*cos(4*x)")}>Wave packet</button><button disabled={!room.canEdit} onClick={()=>functionInput.current?.click()}>Import .txt / .json</button></div>{mathError&&<p className="math-error" role="alert">{mathError}</p>}
       <svg viewBox="0 0 720 260" preserveAspectRatio="none"><defs><linearGradient id="waveGlow"><stop stopColor="#77edff"/><stop offset="1" stopColor="#7c86ff"/></linearGradient></defs><path className="math-gridline" d="M0 130H720M360 0V260"/><path className="math-wave" d={path}/></svg><div className="wave-meaning"><b>TIME</b><i/><span>The curve is built from rotating frequencies. Drag this card beside your face and explain each harmonic.</span></div>
     </article></Dockable>
-    <footer className="visualization-bottom-bar" aria-label="Visualization controls">
-      <div className="bottom-visual-title"><span>LIVE VISUAL / {docked.includes("model")?"IN TOOLS":"ON STAGE"}</span><strong>{visualTitle}</strong><small>{visualDescription}</small></div>
-      <div className="bottom-visual-actions">
-        {subject==="semiconductor"&&(model==="pcb"?<button data-air-action className="visual-run-action" disabled={!room.canEdit} onClick={togglePart}>{removed.includes(selected)?"Return":"Lift"} {selectedPart.label}</button>:<button data-air-action className="visual-run-action" disabled={!room.canEdit} aria-pressed={conducting} onClick={gateToggle}>{conducting?"Ⅱ Pause visualization":"▶ Run visualization"}</button>)}
-        {subject==="maths"&&<button data-air-action className="visual-run-action" disabled={!room.canEdit} onClick={()=>visualize(formula)}>▶ Visualize function</button>}
-        {subject==="coding"&&<button data-air-action data-air-confirm className="visual-run-action" disabled={!room.canEdit||running||!canRun} title={!canRun?"Connect a compiler in Show tools to run this language":undefined} onClick={run}>{running?"Executing…":"▶ Run + visualize"}</button>}
-        {subject==="os"&&<button data-air-action className="visual-run-action" disabled={!room.canEdit||room.state.simulationStep>=12} onClick={()=>updateRoom({simulationStep:Math.min(12,room.state.simulationStep+1)})}>▶ Advance CPU tick</button>}
-        {subject==="coa"&&<span className="bottom-alu-result" role="status">Result {alu(room.state.logicA,room.state.logicB,room.state.logicOperation).result} · carry {alu(room.state.logicA,room.state.logicB,room.state.logicOperation).carry}</span>}
-        {!docked.includes("model")&&zoomControls}
-        <button disabled={!room.canEdit} onClick={resetSpace}>Reset space</button>
-        {!(subject==="semiconductor"&&model==="pcb")&&!docked.includes("model")&&<details className="bottom-visual-details" key={subject}><summary>Details</summary>{visualDetails}</details>}
-      </div>
-    </footer>
+
   </section>;
 }

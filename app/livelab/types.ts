@@ -31,6 +31,7 @@ export interface LessonRoomState {
   stageZoom: number;
   stageExplode: number;
   stageNotes: string[];
+  stageInkObjects: import("./stageInkGeometry").StageInkObject[];
   stageModel: "semiconductor" | "pcb";
   stageSubject: SpatialSubject;
   stageGateOn: boolean;
@@ -80,6 +81,7 @@ export const defaultRoomState: LessonRoomState = {
   stageZoom: 1,
   stageExplode: 36,
   stageNotes: [],
+  stageInkObjects: [],
   stageModel: "semiconductor",
   stageSubject: "semiconductor",
   stageGateOn: true,
