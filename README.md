@@ -89,3 +89,13 @@ The unified scene keeps camera, floating JavaScript editor, function studio and 
 Source text, selected subject, committed card poses, maths function, ALU inputs and scheduling steps use existing classroom snapshot synchronization. The server is an in-memory prototype with polling for separate devices, not authenticated production infrastructure.
 
 Run `npm run test:lesson` for parser, ALU and scheduling tests. Physical gesture accuracy and camera performance must be rehearsed on the presentation laptop.
+
+## PDF-first teaching
+
+Open a PDF (teacher upload, up to 20 MB) to start a clean shared lesson. Student clients load that PDF automatically. Use the highlighter to click/drag real text lines; scanned pages support freehand highlighting. Pen/eraser strokes and text highlights stay with their PDF page. Pointer-click a passage and use Quick Look to research it.
+
+**Add to lesson** restores optional code, maths, writing and 3D objects beside the PDF. Each has a visible remove control; removal hides the object without deleting lesson content. Undo removal or re-add it from the menu. Panel visibility is shared with the class. Close PDF returns to the spatial lesson.
+
+The PDF and room store are currently in server memory: restart recovery, authenticated roles and persistent storage are still required before public production use. Uploading a PDF sends it to this application's server and makes it available to the room; camera frames remain local. Do not use these prototype rooms for confidential documents.
+
+With the local server running, `npm run test:classroom` verifies upload validation, shared PDF retrieval and ungranted student-write rejection using synthetic data.
